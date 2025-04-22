@@ -33,16 +33,26 @@
         font-family: Arial, sans-serif;
         z-index: 100;
       }
+      .channel-preview {
+        position: absolute;
+        width: 300px;
+        height: 200px;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 10px;
+        padding: 10px;
+        display: none;
+      }
     </style>
   </head>
   <body>
     <div id="info">YouTube Channel 3D Gallery - Use WASD to move, mouse to look around</div>
     <div id="debug">Loading...</div>
+    <div id="channel-preview" class="channel-preview"></div>
     <a-scene>
       <!-- Camera with improved controls -->
-      <a-entity camera="fov: 80" 
-                look-controls="pointerLockEnabled: true"
-                wasd-controls="acceleration: 65"
+      <a-entity camera="fov: 60" 
+                look-controls="pointerLockEnabled: true; sensitivity: 0.5; touchEnabled: false"
+                wasd-controls="acceleration: 20; enabled: true"
                 position="0 1.6 0">
       </a-entity>
       
