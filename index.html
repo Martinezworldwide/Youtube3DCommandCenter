@@ -6,6 +6,45 @@
     <meta name="description" content="3D visualization of YouTube channels">
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://unpkg.com/aframe-event-set-component@4.2.1/dist/aframe-event-set-component.min.js"></script>
+    <script>
+      // Custom fly controls component
+      AFRAME.registerComponent('custom-controls', {
+        init: function () {
+          this.moveSpeed = 0.15;
+          this.rotateSpeed = 2;
+          this.keys = {};
+          
+          document.addEventListener('keydown', (e) => this.keys[e.code] = true);
+          document.addEventListener('keyup', (e) => this.keys[e.code] = false);
+        },
+        
+        tick: function () {
+          const rotation = this.el.object3D.rotation;
+          const position = this.el.object3D.position;
+          const direction = new THREE.Vector3();
+          
+          // Forward/backward (W/S)
+          if (this.keys['KeyW'] || this.keys['KeyS']) {
+            const multiplier = this.keys['KeyW'] ? 1 : -1;
+            direction.set(0, 0, -1).applyQuaternion(this.el.object3D.quaternion);
+            position.add(direction.multiplyScalar(this.moveSpeed * multiplier));
+          }
+          
+          // Left/right (A/D)
+          if (this.keys['KeyA'] || this.keys['KeyD']) {
+            const multiplier = this.keys['KeyD'] ? 1 : -1;
+            direction.set(1, 0, 0).applyQuaternion(this.el.object3D.quaternion);
+            position.add(direction.multiplyScalar(this.moveSpeed * multiplier));
+          }
+          
+          // Up/down (Space/Shift)
+          if (this.keys['Space'] || this.keys['ShiftLeft']) {
+            const multiplier = this.keys['Space'] ? 1 : -1;
+            position.y += this.moveSpeed * multiplier;
+          }
+        }
+      });
+    </script>
     <script src="js/channels.js"></script>
     <style>
       body {
@@ -21,6 +60,8 @@
         font-family: Arial, sans-serif;
         pointer-events: none;
         z-index: 100;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 10px;
       }
       .clickable {
         cursor: pointer;
@@ -61,14 +102,14 @@
     </style>
   </head>
   <body>
-    <div id="info">YouTube Channel 3D Gallery - Use WASD to move, mouse to look around</div>
+    <div id="info">YouTube Channel 3D Gallery - WASD to move, Space/Shift for Up/Down, Mouse to look around</div>
     <div id="debug">Loading...</div>
     <button id="back-button">← Back to Channels</button>
     <iframe id="content-frame" allowfullscreen></iframe>
     <a-scene>
-      <!-- Camera with cursor -->
-      <a-entity position="0 1.6 0">
-        <a-camera look-controls="pointerLockEnabled: false">
+      <!-- Camera with custom fly controls -->
+      <a-entity position="0 1.6 0" custom-controls>
+        <a-camera look-controls="pointerLockEnabled: true">
           <a-cursor
             id="cursor"
             animation__click="property: scale; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150; startEvents: click"
@@ -92,12 +133,12 @@
       </a-plane>
       
       <!-- Sky with gradient -->
-      <a-sky color="#ECECEC"></a-sky>
+      <a-sky color="#1E1E1E"></a-sky>
       
       <!-- Improved lighting -->
-      <a-entity light="type: ambient; color: #888; intensity: 0.5"></a-entity>
-      <a-entity light="type: directional; intensity: 0.8" position="-1 1 0"></a-entity>
-      <a-entity light="type: point; intensity: 0.5" position="0 3 -3"></a-entity>
+      <a-entity light="type: ambient; color: #FFF; intensity: 0.8"></a-entity>
+      <a-entity light="type: directional; color: #FFF; intensity: 0.8" position="-1 1 0"></a-entity>
+      <a-entity light="type: point; color: #FFF; intensity: 0.8" position="0 3 -3"></a-entity>
       
       <!-- Center marker for reference -->
       <a-sphere position="0 0.1 -3" radius="0.1" color="#FF0000"></a-sphere>
