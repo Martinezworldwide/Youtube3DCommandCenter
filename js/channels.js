@@ -1,26 +1,27 @@
 // Example channel data - replace with your actual channel data
 const channels = [
-  {
-    name: "Channel 1",
-    url: "https://www.youtube.com/@Str1kerCoach",
-    subscribers: "1M",
-    color: "#FF0000"
-  },
-  {
-    name: "Channel 2",
-    url: "https://www.youtube.com/@martineztv3056",
-    subscribers: "500K",
-    color: "#00FF00"
-  },
-  {
-    name: "Channel 3",
-    url: "https://www.youtube.com/@eventstv6427",
-    subscribers: "250K",
-    color: "#0000FF"
-  }
+    {
+        name: "Channel 1",
+        url: "https://www.youtube.com/@Str1kerCoach",
+        subscribers: "1M",
+        color: "#FF0000"
+      },
+      {
+        name: "Channel 2",
+        url: "https://www.youtube.com/@martineztv3056",
+        subscribers: "500K",
+        color: "#00FF00"
+      },
+      {
+        name: "Channel 3",
+        url: "https://www.youtube.com/@eventstv6427",
+        subscribers: "250K",
+        color: "#0000FF"
+      }
 ];
 
 function createChannelBox(channel, position) {
+  console.log('Creating box for channel:', channel.name, 'at position:', position);
   const box = document.createElement('a-box');
   box.setAttribute('position', position);
   box.setAttribute('width', '1');
@@ -44,7 +45,12 @@ function createChannelBox(channel, position) {
 }
 
 function setupScene() {
+  console.log('Setting up scene...');
   const scene = document.querySelector('a-scene');
+  if (!scene) {
+    console.error('Scene not found!');
+    return;
+  }
   
   // Create channel boxes in a circle
   const radius = 3;
@@ -64,7 +70,28 @@ function setupScene() {
       window.open(element.getAttribute('data-url'), '_blank');
     });
   });
+
+  // Update debug info
+  document.getElementById('debug').textContent = `Loaded ${channels.length} channels`;
 }
 
-// Wait for scene to load
-document.querySelector('a-scene').addEventListener('loaded', setupScene);
+// Initialize when the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('DOM loaded, waiting for scene...');
+  const scene = document.querySelector('a-scene');
+  
+  if (scene) {
+    if (scene.hasLoaded) {
+      console.log('Scene already loaded, setting up...');
+      setupScene();
+    } else {
+      console.log('Waiting for scene to load...');
+      scene.addEventListener('loaded', function() {
+        console.log('Scene loaded, setting up...');
+        setupScene();
+      });
+    }
+  } else {
+    console.error('Scene element not found!');
+  }
+}); 
