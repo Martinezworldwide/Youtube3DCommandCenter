@@ -37,14 +37,16 @@
         position: absolute;
         top: 20px;
         left: 20px;
-        background: rgba(0, 0, 0, 0.7);
+        background: #FF0000;
         color: white;
         border: none;
         padding: 10px 20px;
         border-radius: 5px;
         cursor: pointer;
         display: none;
-        z-index: 100;
+        z-index: 1000;
+        font-size: 16px;
+        font-weight: bold;
       }
       #content-frame {
         position: absolute;
@@ -61,14 +63,23 @@
   <body>
     <div id="info">YouTube Channel 3D Gallery - Use WASD to move, mouse to look around</div>
     <div id="debug">Loading...</div>
-    <button id="back-button" onclick="goBackToChannels()">← Back to Channels</button>
+    <button id="back-button">← Back to Channels</button>
     <iframe id="content-frame" allowfullscreen></iframe>
     <a-scene>
-      <!-- Camera with improved controls -->
-      <a-entity camera="fov: 60" 
-                look-controls="pointerLockEnabled: true; sensitivity: 0.5; touchEnabled: false"
-                wasd-controls="acceleration: 20; enabled: true"
-                position="0 1.6 0">
+      <!-- Camera with cursor -->
+      <a-entity position="0 1.6 0">
+        <a-camera look-controls="pointerLockEnabled: false">
+          <a-cursor
+            id="cursor"
+            animation__click="property: scale; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150; startEvents: click"
+            animation__fusing="property: scale; from: 1 1 1; to: 0.1 0.1 0.1; dur: 1500; startEvents: fusing"
+            animation__mouseleave="property: scale; to: 1 1 1; dur: 500; startEvents: mouseleave"
+            raycaster="objects: .clickable"
+            position="0 0 -1"
+            geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.02"
+            material="color: white; shader: flat"
+          ></a-cursor>
+        </a-camera>
       </a-entity>
       
       <!-- Ground with grid for better spatial reference -->
