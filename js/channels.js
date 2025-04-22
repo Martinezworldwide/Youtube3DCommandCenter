@@ -32,6 +32,8 @@ function createChannelBox(channel, position) {
   box.setAttribute('event-set__mouseleave', 'scale: 1 1 1');
   box.setAttribute('class', 'clickable');
   box.setAttribute('data-url', channel.url);
+  box.setAttribute('animation__hover', 'property: scale; to: 1.1 1.1 1.1; dur: 300; startEvents: mouseenter; pauseEvents: mouseleave');
+  box.setAttribute('animation__unhover', 'property: scale; to: 1 1 1; dur: 300; startEvents: mouseleave');
 
   const text = document.createElement('a-text');
   text.setAttribute('value', `${channel.name}\n${channel.subscribers}`);
@@ -53,12 +55,13 @@ function setupScene() {
   }
   
   // Create channel boxes in a circle
-  const radius = 3;
+  const radius = 5; // Increased radius
+  const centerZ = -8; // Moved center further back
   channels.forEach((channel, index) => {
     const angle = (index / channels.length) * Math.PI * 2;
     const x = Math.sin(angle) * radius;
-    const z = Math.cos(angle) * radius - 3;
-    const position = `${x} 0.5 ${z}`;
+    const z = Math.cos(angle) * radius + centerZ;
+    const position = `${x} 1.5 ${z}`; // Raised boxes to eye level
     
     const box = createChannelBox(channel, position);
     scene.appendChild(box);
