@@ -5,132 +5,82 @@ const channels = [
         url: "https://www.youtube.com/@Str1kerCoach",
         subscribers: "1M",
         color: "#FF0000",
-        contentUrl: "https://www.youtube.com/@Str1kerCoach/videos"
+        contentUrl: "https://www.youtube.com/embed/videoseries?list=UUStr1kerCoach"
     },
     {
         name: "MartinezTV",
         url: "https://www.youtube.com/@martineztv3056",
         subscribers: "500K",
         color: "#00FF00",
-        contentUrl: "https://www.youtube.com/@martineztv3056/videos"
+        contentUrl: "https://www.youtube.com/embed/videoseries?list=UUmartineztv3056"
     },
     {
         name: "EventsTV",
         url: "https://www.youtube.com/@eventstv6427",
         subscribers: "250K",
         color: "#0000FF",
-        contentUrl: "https://www.youtube.com/@eventstv6427/videos"
+        contentUrl: "https://www.youtube.com/embed/videoseries?list=UUeventstv6427"
     }
 ];
 
-function createChannelDisplay(channel, position) {
+function createChannelDisplay(channel, position, rotation) {
     console.log('Creating display for channel:', channel.name, 'at position:', position);
     
-    // Create container entity
-    const container = document.createElement('a-entity');
-    container.setAttribute('position', position);
-    container.setAttribute('class', 'clickable');
+    // Create container for 3D positioning
+    const container = document.createElement('div');
+    container.className = 'channel-display';
+    container.style.transform = `translate3d(${position.x}px, ${position.y}px, ${position.z}px) rotateY(${rotation}deg)`;
     
-    // Create the main display plane
-    const display = document.createElement('a-plane');
-    display.setAttribute('width', '16');  // 16:9 aspect ratio
-    display.setAttribute('height', '9');
-    display.setAttribute('color', '#FFFFFF');
+    // Create iframe for channel content
+    const iframe = document.createElement('iframe');
+    iframe.src = channel.contentUrl;
+    iframe.width = '1280';  // 16:9 aspect ratio
+    iframe.height = '720';
+    iframe.allowFullscreen = true;
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
     
-    // Create iframe entity for web content
-    const iframe = document.createElement('a-entity');
-    iframe.setAttribute('geometry', 'primitive: plane; width: 16; height: 9');
-    iframe.setAttribute('material', `shader: html; target: #frame-${channel.name}; fps: 60`);
-    iframe.setAttribute('position', '0 0 0.01');  // Slightly in front of the plane
+    // Create channel name label
+    const label = document.createElement('div');
+    label.className = 'channel-label';
+    label.textContent = channel.name;
+    label.style.color = channel.color;
     
-    // Create actual iframe in the DOM
-    const domIframe = document.createElement('iframe');
-    domIframe.id = `frame-${channel.name}`;
-    domIframe.src = channel.contentUrl;
-    domIframe.style.display = 'none';
-    document.body.appendChild(domIframe);
-    
-    // Add channel name above the display
-    const text = document.createElement('a-text');
-    text.setAttribute('value', channel.name);
-    text.setAttribute('align', 'center');
-    text.setAttribute('color', channel.color);
-    text.setAttribute('position', '0 4.7 0');  // Position above the display
-    text.setAttribute('scale', '2 2 2');
-    
-    // Add click handler
-    container.addEventListener('click', () => {
-        console.log('Display clicked:', channel.name);
-        window.open(channel.contentUrl, '_blank');
-    });
-    
-    // Assemble the display
-    container.appendChild(display);
     container.appendChild(iframe);
-    container.appendChild(text);
+    container.appendChild(label);
     
     return container;
 }
 
 function setupScene() {
     console.log('Setting up scene...');
-    const scene = document.querySelector('a-scene');
-    if (!scene) {
-        console.error('Scene not found!');
-        return;
-    }
+    
+    const displayContainer = document.createElement('div');
+    displayContainer.id = 'display-container';
+    document.body.appendChild(displayContainer);
     
     // Create displays in a curved arrangement
-    const radius = 20;  // Distance from center
+    const radius = 2000;  // Radius in pixels
     const angleStep = 30;  // Degrees between each display
     const startAngle = -30;  // Start from slightly left of center
+    const displayHeight = 720;  // Height in pixels
     
     channels.forEach((channel, index) => {
-        const angle = (startAngle + (index * angleStep)) * (Math.PI / 180);
-        const x = radius * Math.sin(angle);
-        const z = -radius * Math.cos(angle);
-        const position = `${x} 4.5 ${z}`;  // Raised up to eye level
+        const angle = startAngle + (index * angleStep);
+        const angleRad = angle * (Math.PI / 180);
         
-        const display = createChannelDisplay(channel, position);
+        const position = {
+            x: radius * Math.sin(angleRad),
+            y: displayHeight / 2,  // Center vertically
+            z: -radius * Math.cos(angleRad)
+        };
         
-        // Rotate to face center
-        display.setAttribute('rotation', `0 ${-angle * (180 / Math.PI)} 0`);
-        
-        scene.appendChild(display);
+        const display = createChannelDisplay(channel, position, -angle);
+        displayContainer.appendChild(display);
     });
 }
 
 // Initialize when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, waiting for scene...');
-    
-    const debugElement = document.getElementById('debug');
-    if (debugElement) {
-        debugElement.textContent = 'Initializing...';
-    }
-    
-    const scene = document.querySelector('a-scene');
-    if (scene) {
-        if (scene.hasLoaded) {
-            console.log('Scene already loaded, setting up...');
-            setupScene();
-            if (debugElement) {
-                debugElement.textContent = `Loaded ${channels.length} channels`;
-            }
-        } else {
-            console.log('Waiting for scene to load...');
-            scene.addEventListener('loaded', function() {
-                console.log('Scene loaded, setting up...');
-                setupScene();
-                if (debugElement) {
-                    debugElement.textContent = `Loaded ${channels.length} channels`;
-                }
-            });
-        }
-    } else {
-        console.error('Scene element not found!');
-        if (debugElement) {
-            debugElement.textContent = 'Error: Scene not found';
-        }
-    }
+    console.log('DOM loaded, setting up displays...');
+    setupScene();
 }); 
