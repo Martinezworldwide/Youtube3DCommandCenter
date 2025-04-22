@@ -54,6 +54,7 @@ function createChannelBox(channel, position) {
 }
 
 function showChannelContent(contentUrl) {
+  console.log('Showing channel content:', contentUrl);
   const frame = document.getElementById('content-frame');
   const backButton = document.getElementById('back-button');
   const scene = document.querySelector('a-scene');
@@ -65,12 +66,12 @@ function showChannelContent(contentUrl) {
   frame.src = contentUrl;
   frame.style.display = 'block';
   backButton.style.display = 'block';
-  backButton.style.backgroundColor = '#FF0000';  // Make back button more visible
   
   currentScene = 'content';
 }
 
 function goBackToChannels() {
+  console.log('Going back to channels view');
   const frame = document.getElementById('content-frame');
   const backButton = document.getElementById('back-button');
   const scene = document.querySelector('a-scene');
@@ -78,6 +79,7 @@ function goBackToChannels() {
   // Hide content frame and back button
   frame.style.display = 'none';
   backButton.style.display = 'none';
+  frame.src = ''; // Clear the iframe source
   
   // Show 3D scene
   scene.style.display = 'block';
@@ -111,7 +113,8 @@ function setupScene() {
     
     // Add click handler to show channel content
     box.addEventListener('click', () => {
-      showChannelContent(box.getAttribute('data-content-url'));
+      console.log('Box clicked:', channel.name);
+      showChannelContent(channel.contentUrl);
     });
   });
 }
@@ -119,6 +122,10 @@ function setupScene() {
 // Initialize when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM loaded, waiting for scene...');
+  
+  // Set up back button click handler
+  const backButton = document.getElementById('back-button');
+  backButton.addEventListener('click', goBackToChannels);
   
   // Update debug info
   const debugElement = document.getElementById('debug');
