@@ -70,28 +70,40 @@ function setupScene() {
       window.open(element.getAttribute('data-url'), '_blank');
     });
   });
-
-  // Update debug info
-  document.getElementById('debug').textContent = `Loaded ${channels.length} channels`;
 }
 
 // Initialize when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM loaded, waiting for scene...');
-  const scene = document.querySelector('a-scene');
   
+  // Update debug info
+  const debugElement = document.getElementById('debug');
+  if (debugElement) {
+    debugElement.textContent = 'Initializing...';
+  }
+  
+  const scene = document.querySelector('a-scene');
   if (scene) {
     if (scene.hasLoaded) {
       console.log('Scene already loaded, setting up...');
       setupScene();
+      if (debugElement) {
+        debugElement.textContent = `Loaded ${channels.length} channels`;
+      }
     } else {
       console.log('Waiting for scene to load...');
       scene.addEventListener('loaded', function() {
         console.log('Scene loaded, setting up...');
         setupScene();
+        if (debugElement) {
+          debugElement.textContent = `Loaded ${channels.length} channels`;
+        }
       });
     }
   } else {
     console.error('Scene element not found!');
+    if (debugElement) {
+      debugElement.textContent = 'Error: Scene not found';
+    }
   }
 }); 
