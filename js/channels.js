@@ -6,155 +6,131 @@ const channels = [
         subscribers: "1M",
         color: "#FF0000",
         contentUrl: "https://www.youtube.com/@Str1kerCoach/videos"
-      },
-      {
+    },
+    {
         name: "MartinezTV",
         url: "https://www.youtube.com/@martineztv3056",
         subscribers: "500K",
         color: "#00FF00",
         contentUrl: "https://www.youtube.com/@martineztv3056/videos"
-      },
-      {
+    },
+    {
         name: "EventsTV",
         url: "https://www.youtube.com/@eventstv6427",
         subscribers: "250K",
         color: "#0000FF",
         contentUrl: "https://www.youtube.com/@eventstv6427/videos"
-      }
+    }
 ];
 
-let currentScene = 'channels'; // 'channels' or 'content'
-
-function createChannelBox(channel, position) {
-  console.log('Creating box for channel:', channel.name, 'at position:', position);
-  const box = document.createElement('a-box');
-  box.setAttribute('position', position);
-  box.setAttribute('width', '2');
-  box.setAttribute('height', '1.5');
-  box.setAttribute('depth', '0.1');
-  box.setAttribute('color', channel.color);
-  box.setAttribute('class', 'clickable');
-  box.setAttribute('data-url', channel.url);
-  box.setAttribute('data-content-url', channel.contentUrl);
-  box.setAttribute('data-name', channel.name);
-
-  // Add hover effect
-  box.setAttribute('animation__hover', 'property: scale; to: 1.05 1.05 1.05; dur: 300; startEvents: mouseenter; pauseEvents: mouseleave');
-  box.setAttribute('animation__unhover', 'property: scale; to: 1 1 1; dur: 300; startEvents: mouseleave');
-
-  const text = document.createElement('a-text');
-  text.setAttribute('value', channel.name);
-  text.setAttribute('align', 'center');
-  text.setAttribute('color', 'white');
-  text.setAttribute('position', '0 0 0.06');
-  text.setAttribute('scale', '0.5 0.5 0.5');
-
-  box.appendChild(text);
-  return box;
-}
-
-function showChannelContent(contentUrl) {
-  console.log('Showing channel content:', contentUrl);
-  const frame = document.getElementById('content-frame');
-  const backButton = document.getElementById('back-button');
-  const scene = document.querySelector('a-scene');
-  
-  // Hide 3D scene
-  scene.style.display = 'none';
-  
-  // Show content frame and back button
-  frame.src = contentUrl;
-  frame.style.display = 'block';
-  backButton.style.display = 'block';
-  
-  currentScene = 'content';
-}
-
-function goBackToChannels() {
-  console.log('Going back to channels view');
-  const frame = document.getElementById('content-frame');
-  const backButton = document.getElementById('back-button');
-  const scene = document.querySelector('a-scene');
-  
-  // Hide content frame and back button
-  frame.style.display = 'none';
-  backButton.style.display = 'none';
-  frame.src = ''; // Clear the iframe source
-  
-  // Show 3D scene
-  scene.style.display = 'block';
-  
-  currentScene = 'channels';
+function createChannelDisplay(channel, position) {
+    console.log('Creating display for channel:', channel.name, 'at position:', position);
+    
+    // Create container entity
+    const container = document.createElement('a-entity');
+    container.setAttribute('position', position);
+    container.setAttribute('class', 'clickable');
+    
+    // Create the main display plane
+    const display = document.createElement('a-plane');
+    display.setAttribute('width', '16');  // 16:9 aspect ratio
+    display.setAttribute('height', '9');
+    display.setAttribute('color', '#FFFFFF');
+    
+    // Create iframe entity for web content
+    const iframe = document.createElement('a-entity');
+    iframe.setAttribute('geometry', 'primitive: plane; width: 16; height: 9');
+    iframe.setAttribute('material', `shader: html; target: #frame-${channel.name}; fps: 60`);
+    iframe.setAttribute('position', '0 0 0.01');  // Slightly in front of the plane
+    
+    // Create actual iframe in the DOM
+    const domIframe = document.createElement('iframe');
+    domIframe.id = `frame-${channel.name}`;
+    domIframe.src = channel.contentUrl;
+    domIframe.style.display = 'none';
+    document.body.appendChild(domIframe);
+    
+    // Add channel name above the display
+    const text = document.createElement('a-text');
+    text.setAttribute('value', channel.name);
+    text.setAttribute('align', 'center');
+    text.setAttribute('color', channel.color);
+    text.setAttribute('position', '0 4.7 0');  // Position above the display
+    text.setAttribute('scale', '2 2 2');
+    
+    // Add click handler
+    container.addEventListener('click', () => {
+        console.log('Display clicked:', channel.name);
+        window.open(channel.contentUrl, '_blank');
+    });
+    
+    // Assemble the display
+    container.appendChild(display);
+    container.appendChild(iframe);
+    container.appendChild(text);
+    
+    return container;
 }
 
 function setupScene() {
-  console.log('Setting up scene...');
-  const scene = document.querySelector('a-scene');
-  if (!scene) {
-    console.error('Scene not found!');
-    return;
-  }
-  
-  // Create channel boxes in a grid
-  const columns = 3;
-  const spacing = 3;
-  const startX = -spacing;
-  const startZ = -8;
-  
-  channels.forEach((channel, index) => {
-    const row = Math.floor(index / columns);
-    const col = index % columns;
-    const x = startX + (col * spacing);
-    const z = startZ - (row * spacing);
-    const position = `${x} 1.5 ${z}`;
+    console.log('Setting up scene...');
+    const scene = document.querySelector('a-scene');
+    if (!scene) {
+        console.error('Scene not found!');
+        return;
+    }
     
-    const box = createChannelBox(channel, position);
-    scene.appendChild(box);
+    // Create displays in a curved arrangement
+    const radius = 20;  // Distance from center
+    const angleStep = 30;  // Degrees between each display
+    const startAngle = -30;  // Start from slightly left of center
     
-    // Add click handler to show channel content
-    box.addEventListener('click', () => {
-      console.log('Box clicked:', channel.name);
-      showChannelContent(channel.contentUrl);
+    channels.forEach((channel, index) => {
+        const angle = (startAngle + (index * angleStep)) * (Math.PI / 180);
+        const x = radius * Math.sin(angle);
+        const z = -radius * Math.cos(angle);
+        const position = `${x} 4.5 ${z}`;  // Raised up to eye level
+        
+        const display = createChannelDisplay(channel, position);
+        
+        // Rotate to face center
+        display.setAttribute('rotation', `0 ${-angle * (180 / Math.PI)} 0`);
+        
+        scene.appendChild(display);
     });
-  });
 }
 
 // Initialize when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('DOM loaded, waiting for scene...');
-  
-  // Set up back button click handler
-  const backButton = document.getElementById('back-button');
-  backButton.addEventListener('click', goBackToChannels);
-  
-  // Update debug info
-  const debugElement = document.getElementById('debug');
-  if (debugElement) {
-    debugElement.textContent = 'Initializing...';
-  }
-  
-  const scene = document.querySelector('a-scene');
-  if (scene) {
-    if (scene.hasLoaded) {
-      console.log('Scene already loaded, setting up...');
-      setupScene();
-      if (debugElement) {
-        debugElement.textContent = `Loaded ${channels.length} channels`;
-      }
-    } else {
-      console.log('Waiting for scene to load...');
-      scene.addEventListener('loaded', function() {
-        console.log('Scene loaded, setting up...');
-        setupScene();
-        if (debugElement) {
-          debugElement.textContent = `Loaded ${channels.length} channels`;
-        }
-      });
-    }
-  } else {
-    console.error('Scene element not found!');
+    console.log('DOM loaded, waiting for scene...');
+    
+    const debugElement = document.getElementById('debug');
     if (debugElement) {
-      debugElement.textContent = 'Error: Scene not found';
+        debugElement.textContent = 'Initializing...';
     }
-  }
+    
+    const scene = document.querySelector('a-scene');
+    if (scene) {
+        if (scene.hasLoaded) {
+            console.log('Scene already loaded, setting up...');
+            setupScene();
+            if (debugElement) {
+                debugElement.textContent = `Loaded ${channels.length} channels`;
+            }
+        } else {
+            console.log('Waiting for scene to load...');
+            scene.addEventListener('loaded', function() {
+                console.log('Scene loaded, setting up...');
+                setupScene();
+                if (debugElement) {
+                    debugElement.textContent = `Loaded ${channels.length} channels`;
+                }
+            });
+        }
+    } else {
+        console.error('Scene element not found!');
+        if (debugElement) {
+            debugElement.textContent = 'Error: Scene not found';
+        }
+    }
 }); 
