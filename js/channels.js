@@ -5,21 +5,21 @@ const channels = [
         url: "https://www.youtube.com/@Str1kerCoach",
         subscribers: "1M",
         color: "#FF0000",
-        contentUrl: "https://www.youtube.com/embed?listType=user_uploads&list=Str1kerCoach"
+        contentUrl: "https://www.youtube.com/@Str1kerCoach/videos"
       },
       {
         name: "MartinezTV",
         url: "https://www.youtube.com/@martineztv3056",
         subscribers: "500K",
         color: "#00FF00",
-        contentUrl: "https://www.youtube.com/embed?listType=user_uploads&list=martineztv3056"
+        contentUrl: "https://www.youtube.com/@martineztv3056/videos"
       },
       {
         name: "EventsTV",
         url: "https://www.youtube.com/@eventstv6427",
         subscribers: "250K",
         color: "#0000FF",
-        contentUrl: "https://www.youtube.com/embed?listType=user_uploads&list=eventstv6427"
+        contentUrl: "https://www.youtube.com/@eventstv6427/videos"
       }
 ];
 
@@ -65,6 +65,7 @@ function showChannelContent(contentUrl) {
   frame.src = contentUrl;
   frame.style.display = 'block';
   backButton.style.display = 'block';
+  backButton.style.backgroundColor = '#FF0000';  // Make back button more visible
   
   currentScene = 'content';
 }
