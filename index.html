@@ -4,144 +4,132 @@
     <meta charset="utf-8">
     <title>YouTube Channel 3D Gallery</title>
     <meta name="description" content="3D visualization of YouTube channels">
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://unpkg.com/aframe-event-set-component@4.2.1/dist/aframe-event-set-component.min.js"></script>
-    <script>
-      // Custom fly controls component
-      AFRAME.registerComponent('custom-controls', {
-        init: function () {
-          this.moveSpeed = 0.15;
-          this.rotateSpeed = 2;
-          this.keys = {};
-          
-          document.addEventListener('keydown', (e) => this.keys[e.code] = true);
-          document.addEventListener('keyup', (e) => this.keys[e.code] = false);
-        },
-        
-        tick: function () {
-          const rotation = this.el.object3D.rotation;
-          const position = this.el.object3D.position;
-          const direction = new THREE.Vector3();
-          
-          // Forward/backward (W/S)
-          if (this.keys['KeyW'] || this.keys['KeyS']) {
-            const multiplier = this.keys['KeyW'] ? 1 : -1;
-            direction.set(0, 0, -1).applyQuaternion(this.el.object3D.quaternion);
-            position.add(direction.multiplyScalar(this.moveSpeed * multiplier));
-          }
-          
-          // Left/right (A/D)
-          if (this.keys['KeyA'] || this.keys['KeyD']) {
-            const multiplier = this.keys['KeyD'] ? 1 : -1;
-            direction.set(1, 0, 0).applyQuaternion(this.el.object3D.quaternion);
-            position.add(direction.multiplyScalar(this.moveSpeed * multiplier));
-          }
-          
-          // Up/down (Space/Shift)
-          if (this.keys['Space'] || this.keys['ShiftLeft']) {
-            const multiplier = this.keys['Space'] ? 1 : -1;
-            position.y += this.moveSpeed * multiplier;
-          }
-        }
-      });
-    </script>
-    <script src="js/channels.js"></script>
     <style>
       body {
         margin: 0;
         overflow: hidden;
+        background-color: #1E1E1E;
+        perspective: 2000px;
+        perspective-origin: 50% 50%;
+        font-family: Arial, sans-serif;
       }
-      #info {
+      
+      #display-container {
+        position: fixed;
+        width: 100vw;
+        height: 100vh;
+        transform-style: preserve-3d;
+      }
+      
+      .channel-display {
         position: absolute;
-        top: 10px;
+        transform-style: preserve-3d;
+        transition: transform 0.3s ease;
+      }
+      
+      .channel-display:hover {
+        transform: scale(1.05);
+      }
+      
+      .channel-display iframe {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+      }
+      
+      .channel-label {
+        position: absolute;
+        top: -40px;
         width: 100%;
         text-align: center;
-        color: white;
-        font-family: Arial, sans-serif;
-        pointer-events: none;
-        z-index: 100;
-        background: rgba(0, 0, 0, 0.5);
-        padding: 10px;
+        font-size: 24px;
+        font-weight: bold;
+        text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
       }
-      .clickable {
-        cursor: pointer;
-      }
-      #debug {
-        position: absolute;
-        bottom: 10px;
-        left: 10px;
-        color: white;
-        font-family: Arial, sans-serif;
-        z-index: 100;
-      }
-      #back-button {
-        position: absolute;
+      
+      #controls {
+        position: fixed;
         top: 20px;
         left: 20px;
-        background: #FF0000;
         color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-        cursor: pointer;
-        display: none;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 15px;
+        border-radius: 10px;
         z-index: 1000;
-        font-size: 16px;
-        font-weight: bold;
       }
-      #content-frame {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        border: none;
-        display: none;
-        z-index: 90;
+      
+      #controls h2 {
+        margin: 0 0 10px 0;
+      }
+      
+      #controls p {
+        margin: 5px 0;
+      }
+      
+      .key {
+        background: #333;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin: 0 2px;
       }
     </style>
   </head>
   <body>
-    <div id="info">YouTube Channel 3D Gallery - WASD to move, Space/Shift for Up/Down, Mouse to look around</div>
-    <div id="debug">Loading...</div>
-    <button id="back-button">← Back to Channels</button>
-    <iframe id="content-frame" allowfullscreen></iframe>
-    <a-scene>
-      <!-- Camera with custom fly controls -->
-      <a-entity position="0 1.6 0" custom-controls>
-        <a-camera look-controls="pointerLockEnabled: true">
-          <a-cursor
-            id="cursor"
-            animation__click="property: scale; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150; startEvents: click"
-            animation__fusing="property: scale; from: 1 1 1; to: 0.1 0.1 0.1; dur: 1500; startEvents: fusing"
-            animation__mouseleave="property: scale; to: 1 1 1; dur: 500; startEvents: mouseleave"
-            raycaster="objects: .clickable"
-            position="0 0 -1"
-            geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.02"
-            material="color: white; shader: flat"
-          ></a-cursor>
-        </a-camera>
-      </a-entity>
+    <div id="controls">
+      <h2>Controls</h2>
+      <p><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> - Move</p>
+      <p><span class="key">Q</span><span class="key">E</span> - Rotate</p>
+      <p><span class="key">Space</span> - Up</p>
+      <p><span class="key">Shift</span> - Down</p>
+      <p><span class="key">Mouse</span> - Look</p>
+    </div>
+    <script src="js/channels.js"></script>
+    <script>
+      // Camera controls
+      let cameraX = 0;
+      let cameraY = 0;
+      let cameraZ = 0;
+      let rotationY = 0;
+      const moveSpeed = 50;
+      const rotateSpeed = 2;
+      const keys = {};
       
-      <!-- Ground with grid for better spatial reference -->
-      <a-plane position="0 0 -4" 
-               rotation="-90 0 0" 
-               width="100" 
-               height="100" 
-               color="#7BC8A4"
-               material="src: https://cdn.aframe.io/a-painter/images/floor.jpg; repeat: 100 100">
-      </a-plane>
+      document.addEventListener('keydown', (e) => keys[e.code] = true);
+      document.addEventListener('keyup', (e) => keys[e.code] = false);
       
-      <!-- Sky with gradient -->
-      <a-sky color="#1E1E1E"></a-sky>
+      function updateCamera() {
+        // Forward/backward (W/S)
+        if (keys['KeyW'] || keys['KeyS']) {
+          const multiplier = keys['KeyW'] ? 1 : -1;
+          cameraZ += Math.cos(rotationY * Math.PI / 180) * moveSpeed * multiplier;
+          cameraX += Math.sin(rotationY * Math.PI / 180) * moveSpeed * multiplier;
+        }
+        
+        // Left/right (A/D)
+        if (keys['KeyA'] || keys['KeyD']) {
+          const multiplier = keys['KeyD'] ? 1 : -1;
+          cameraX += Math.cos(rotationY * Math.PI / 180) * moveSpeed * multiplier;
+          cameraZ -= Math.sin(rotationY * Math.PI / 180) * moveSpeed * multiplier;
+        }
+        
+        // Up/down (Space/Shift)
+        if (keys['Space']) cameraY += moveSpeed;
+        if (keys['ShiftLeft']) cameraY -= moveSpeed;
+        
+        // Rotation (Q/E)
+        if (keys['KeyQ']) rotationY -= rotateSpeed;
+        if (keys['KeyE']) rotationY += rotateSpeed;
+        
+        const container = document.getElementById('display-container');
+        container.style.transform = `translateZ(${-cameraZ}px) translateX(${-cameraX}px) translateY(${-cameraY}px) rotateY(${rotationY}deg)`;
+      }
       
-      <!-- Improved lighting -->
-      <a-entity light="type: ambient; color: #FFF; intensity: 0.8"></a-entity>
-      <a-entity light="type: directional; color: #FFF; intensity: 0.8" position="-1 1 0"></a-entity>
-      <a-entity light="type: point; color: #FFF; intensity: 0.8" position="0 3 -3"></a-entity>
+      function animate() {
+        updateCamera();
+        requestAnimationFrame(animate);
+      }
       
-      <!-- Center marker for reference -->
-      <a-sphere position="0 0.1 -3" radius="0.1" color="#FF0000"></a-sphere>
-    </a-scene>
+      animate();
+    </script>
   </body>
 </html> 
