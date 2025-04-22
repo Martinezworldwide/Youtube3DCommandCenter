@@ -1,27 +1,29 @@
 // Example channel data - replace with your actual channel data
 const channels = [
     {
-        name: "Channel 1",
+        name: "Str1kerCoach",
         url: "https://www.youtube.com/@Str1kerCoach",
         subscribers: "1M",
         color: "#FF0000",
-        thumbnail: "https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg"
+        contentUrl: "https://www.youtube.com/embed?listType=user_uploads&list=Str1kerCoach"
       },
       {
-        name: "Channel 2",
+        name: "MartinezTV",
         url: "https://www.youtube.com/@martineztv3056",
         subscribers: "500K",
         color: "#00FF00",
-        thumbnail: "https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg"
+        contentUrl: "https://www.youtube.com/embed?listType=user_uploads&list=martineztv3056"
       },
       {
-        name: "Channel 3",
+        name: "EventsTV",
         url: "https://www.youtube.com/@eventstv6427",
         subscribers: "250K",
         color: "#0000FF",
-        thumbnail: "https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg"
+        contentUrl: "https://www.youtube.com/embed?listType=user_uploads&list=eventstv6427"
       }
 ];
+
+let currentScene = 'channels'; // 'channels' or 'content'
 
 function createChannelBox(channel, position) {
   console.log('Creating box for channel:', channel.name, 'at position:', position);
@@ -33,16 +35,15 @@ function createChannelBox(channel, position) {
   box.setAttribute('color', channel.color);
   box.setAttribute('class', 'clickable');
   box.setAttribute('data-url', channel.url);
+  box.setAttribute('data-content-url', channel.contentUrl);
   box.setAttribute('data-name', channel.name);
-  box.setAttribute('data-subscribers', channel.subscribers);
-  box.setAttribute('data-thumbnail', channel.thumbnail);
 
   // Add hover effect
   box.setAttribute('animation__hover', 'property: scale; to: 1.05 1.05 1.05; dur: 300; startEvents: mouseenter; pauseEvents: mouseleave');
   box.setAttribute('animation__unhover', 'property: scale; to: 1 1 1; dur: 300; startEvents: mouseleave');
 
   const text = document.createElement('a-text');
-  text.setAttribute('value', `${channel.name}\n${channel.subscribers}`);
+  text.setAttribute('value', channel.name);
   text.setAttribute('align', 'center');
   text.setAttribute('color', 'white');
   text.setAttribute('position', '0 0 0.06');
@@ -52,24 +53,35 @@ function createChannelBox(channel, position) {
   return box;
 }
 
-function showChannelPreview(event) {
-  const preview = document.getElementById('channel-preview');
-  const box = event.target;
+function showChannelContent(contentUrl) {
+  const frame = document.getElementById('content-frame');
+  const backButton = document.getElementById('back-button');
+  const scene = document.querySelector('a-scene');
   
-  preview.style.display = 'block';
-  preview.style.left = `${event.clientX}px`;
-  preview.style.top = `${event.clientY}px`;
+  // Hide 3D scene
+  scene.style.display = 'none';
   
-  preview.innerHTML = `
-    <h3 style="color: white; margin: 0;">${box.getAttribute('data-name')}</h3>
-    <p style="color: white; margin: 5px 0;">Subscribers: ${box.getAttribute('data-subscribers')}</p>
-    <img src="${box.getAttribute('data-thumbnail')}" style="width: 100%; height: auto; border-radius: 5px;">
-  `;
+  // Show content frame and back button
+  frame.src = contentUrl;
+  frame.style.display = 'block';
+  backButton.style.display = 'block';
+  
+  currentScene = 'content';
 }
 
-function hideChannelPreview() {
-  const preview = document.getElementById('channel-preview');
-  preview.style.display = 'none';
+function goBackToChannels() {
+  const frame = document.getElementById('content-frame');
+  const backButton = document.getElementById('back-button');
+  const scene = document.querySelector('a-scene');
+  
+  // Hide content frame and back button
+  frame.style.display = 'none';
+  backButton.style.display = 'none';
+  
+  // Show 3D scene
+  scene.style.display = 'block';
+  
+  currentScene = 'channels';
 }
 
 function setupScene() {
@@ -96,11 +108,9 @@ function setupScene() {
     const box = createChannelBox(channel, position);
     scene.appendChild(box);
     
-    // Add preview events
-    box.addEventListener('mouseenter', showChannelPreview);
-    box.addEventListener('mouseleave', hideChannelPreview);
+    // Add click handler to show channel content
     box.addEventListener('click', () => {
-      window.open(box.getAttribute('data-url'), '_blank');
+      showChannelContent(box.getAttribute('data-content-url'));
     });
   });
 }
