@@ -2,8 +2,8 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>YouTube Channel 3D Gallery</title>
-    <meta name="description" content="3D visualization of YouTube channels">
+    <title>YouTube Command Center - Web Demo</title>
+    <meta name="description" content="3D visualization of YouTube channels - Try the free web demo!">
     <style>
       body {
         margin: 0;
@@ -12,6 +12,7 @@
         perspective: 2000px;
         perspective-origin: 50% 50%;
         font-family: Arial, sans-serif;
+        color: white;
       }
       
       #display-container {
@@ -35,6 +36,13 @@
         border: none;
         border-radius: 10px;
         box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        background: #000;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+      }
+      
+      .channel-display iframe.loaded {
+        opacity: 1;
       }
       
       .channel-label {
@@ -47,23 +55,76 @@
         text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
       }
       
-      #controls {
+      #ui-container {
         position: fixed;
-        top: 20px;
-        left: 20px;
-        color: white;
-        background: rgba(0, 0, 0, 0.7);
-        padding: 15px;
-        border-radius: 10px;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
         z-index: 1000;
       }
       
-      #controls h2 {
-        margin: 0 0 10px 0;
+      #controls {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 15px;
+        border-radius: 10px;
+        pointer-events: auto;
       }
       
-      #controls p {
-        margin: 5px 0;
+      #premium-button {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: #FF0000;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        font-weight: bold;
+        cursor: pointer;
+        pointer-events: auto;
+        transition: transform 0.2s ease;
+      }
+      
+      #premium-button:hover {
+        transform: scale(1.1);
+      }
+      
+      #loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #1E1E1E;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+        transition: opacity 0.5s ease;
+      }
+      
+      #loading-screen.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      .spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid #333;
+        border-top-color: #FF0000;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        to { transform: rotate(360deg); }
       }
       
       .key {
@@ -72,62 +133,120 @@
         border-radius: 4px;
         margin: 0 2px;
       }
+      
+      #tutorial {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        padding: 15px;
+        border-radius: 10px;
+        text-align: center;
+        pointer-events: auto;
+      }
+      
+      #tutorial.hidden {
+        display: none;
+      }
     </style>
   </head>
   <body>
-    <div id="controls">
-      <h2>Controls</h2>
-      <p><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> - Move</p>
-      <p><span class="key">Q</span><span class="key">E</span> - Rotate</p>
-      <p><span class="key">Space</span> - Up</p>
-      <p><span class="key">Shift</span> - Down</p>
-      <p><span class="key">Mouse</span> - Look</p>
+    <div id="loading-screen">
+      <div class="spinner"></div>
+      <h2>Loading YouTube Command Center</h2>
+      <p>Preparing your 3D experience...</p>
     </div>
+    
+    <div id="display-container"></div>
+    
+    <div id="ui-container">
+      <div id="controls">
+        <h2>Controls</h2>
+        <p><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> - Move</p>
+        <p><span class="key">Q</span><span class="key">E</span> - Rotate</p>
+        <p><span class="key">Space</span> - Up</p>
+        <p><span class="key">Shift</span> - Down</p>
+        <p><span class="key">Mouse</span> - Look</p>
+      </div>
+      
+      <button id="premium-button" onclick="window.open('https://yourwebsite.com/premium', '_blank')">
+        Try Premium Version
+      </button>
+      
+      <div id="tutorial">
+        Click on a channel display to view its content
+        <br>
+        <button onclick="this.parentElement.classList.add('hidden')" style="margin-top: 10px">Got it!</button>
+      </div>
+    </div>
+    
     <script src="js/channels.js"></script>
     <script>
-      // Camera controls
-      let cameraX = 0;
-      let cameraY = 0;
-      let cameraZ = 0;
-      let rotationY = 0;
-      const moveSpeed = 50;
-      const rotateSpeed = 2;
-      const keys = {};
-      
-      document.addEventListener('keydown', (e) => keys[e.code] = true);
-      document.addEventListener('keyup', (e) => keys[e.code] = false);
-      
-      function updateCamera() {
-        // Forward/backward (W/S)
-        if (keys['KeyW'] || keys['KeyS']) {
-          const multiplier = keys['KeyW'] ? 1 : -1;
-          cameraZ += Math.cos(rotationY * Math.PI / 180) * moveSpeed * multiplier;
-          cameraX += Math.sin(rotationY * Math.PI / 180) * moveSpeed * multiplier;
-        }
+      // Wait for DOM and display container to be ready
+      document.addEventListener('DOMContentLoaded', function() {
+        const loadingScreen = document.getElementById('loading-screen');
         
-        // Left/right (A/D)
-        if (keys['KeyA'] || keys['KeyD']) {
-          const multiplier = keys['KeyD'] ? 1 : -1;
-          cameraX += Math.cos(rotationY * Math.PI / 180) * moveSpeed * multiplier;
-          cameraZ -= Math.sin(rotationY * Math.PI / 180) * moveSpeed * multiplier;
-        }
-        
-        // Up/down (Space/Shift)
-        if (keys['Space']) cameraY += moveSpeed;
-        if (keys['ShiftLeft']) cameraY -= moveSpeed;
-        
-        // Rotation (Q/E)
-        if (keys['KeyQ']) rotationY -= rotateSpeed;
-        if (keys['KeyE']) rotationY += rotateSpeed;
+        // Camera controls
+        let cameraX = 0;
+        let cameraY = 0;
+        let cameraZ = 0;
+        let rotationY = 0;
+        const moveSpeed = 50;
+        const rotateSpeed = 2;
+        const keys = {};
         
         const container = document.getElementById('display-container');
-        container.style.transform = `translateZ(${-cameraZ}px) translateX(${-cameraX}px) translateY(${-cameraY}px) rotateY(${rotationY}deg)`;
-      }
-      
-      function animate() {
-        updateCamera();
-        requestAnimationFrame(animate);
-      }
+        if (!container) {
+          console.error('Display container not found!');
+          return;
+        }
+        
+        document.addEventListener('keydown', (e) => keys[e.code] = true);
+        document.addEventListener('keyup', (e) => keys[e.code] = false);
+        
+        function updateCamera() {
+          // Forward/backward (W/S)
+          if (keys['KeyW'] || keys['KeyS']) {
+            const multiplier = keys['KeyW'] ? 1 : -1;
+            cameraZ += Math.cos(rotationY * Math.PI / 180) * moveSpeed * multiplier;
+            cameraX += Math.sin(rotationY * Math.PI / 180) * moveSpeed * multiplier;
+          }
+          
+          // Left/right (A/D)
+          if (keys['KeyA'] || keys['KeyD']) {
+            const multiplier = keys['KeyD'] ? 1 : -1;
+            cameraX += Math.cos(rotationY * Math.PI / 180) * moveSpeed * multiplier;
+            cameraZ -= Math.sin(rotationY * Math.PI / 180) * moveSpeed * multiplier;
+          }
+          
+          // Up/down (Space/Shift)
+          if (keys['Space']) cameraY += moveSpeed;
+          if (keys['ShiftLeft']) cameraY -= moveSpeed;
+          
+          // Rotation (Q/E)
+          if (keys['KeyQ']) rotationY -= rotateSpeed;
+          if (keys['KeyE']) rotationY += rotateSpeed;
+          
+          container.style.transform = `translateZ(${-cameraZ}px) translateX(${-cameraX}px) translateY(${-cameraY}px) rotateY(${rotationY}deg)`;
+        }
+        
+        function animate() {
+          updateCamera();
+          requestAnimationFrame(animate);
+        }
+        
+        // Start animation loop
+        animate();
+        
+        // Hide loading screen after everything is ready
+        setTimeout(() => {
+          loadingScreen.classList.add('hidden');
+        }, 1500);
+      });
+    </script>
+  </body>
+</html> 
       
       animate();
     </script>
