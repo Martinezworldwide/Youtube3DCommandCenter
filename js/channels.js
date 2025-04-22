@@ -2,19 +2,19 @@
 const channels = [
   {
     name: "Channel 1",
-    url: "https://youtube.com/channel1",
+    url: "https://www.youtube.com/@Str1kerCoach",
     subscribers: "1M",
     color: "#FF0000"
   },
   {
     name: "Channel 2",
-    url: "https://youtube.com/channel2",
+    url: "https://www.youtube.com/@martineztv3056",
     subscribers: "500K",
     color: "#00FF00"
   },
   {
     name: "Channel 3",
-    url: "https://youtube.com/channel3",
+    url: "https://www.youtube.com/@eventstv6427",
     subscribers: "250K",
     color: "#0000FF"
   }
