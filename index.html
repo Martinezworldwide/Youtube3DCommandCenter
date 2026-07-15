@@ -7,6 +7,12 @@
     <title>YouTube Command Center - Web Demo</title>
     <meta name="description" content="3D visualization of YouTube channels - Try the free web demo!">
     <style>
+      :root {
+        --screen-width: 1280px;
+        --screen-height: 720px;
+        --label-offset: -90px;
+      }
+
       body {
         margin: 0;
         overflow: hidden;
@@ -15,6 +21,11 @@
         perspective-origin: 50% 50%;
         font-family: Arial, sans-serif;
         color: white;
+        touch-action: none;
+      }
+
+      body.modal-open {
+        overflow: hidden;
       }
       
       #display-container {
@@ -39,12 +50,53 @@
       }
 
       .channel-placeholder,
-      .channel-player-host {
-        width: 1280px;
-        height: 720px;
+      .channel-player-host,
+      .channel-touch-screen {
+        width: var(--screen-width);
+        height: var(--screen-height);
         border-radius: 10px;
         box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
         background: #000;
+      }
+
+      .channel-touch-screen {
+        position: relative;
+        padding: 0;
+        border: 2px solid rgba(255, 255, 255, 0.15);
+        overflow: hidden;
+        cursor: pointer;
+      }
+
+      .channel-thumbnail {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .channel-play-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        background: rgba(0, 0, 0, 0.35);
+        font-size: 16px;
+        font-weight: bold;
+      }
+
+      .channel-play-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: rgba(255, 0, 0, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        padding-left: 4px;
       }
 
       .channel-placeholder {
@@ -101,14 +153,14 @@
       .channel-player-host iframe {
         border: none;
         border-radius: 10px;
-        width: 1280px;
-        height: 720px;
+        width: 100%;
+        height: 100%;
         background: #000;
       }
       
       .channel-label {
         position: absolute;
-        top: -90px;
+        top: var(--label-offset);
         width: 100%;
         text-align: center;
         font-size: 24px;
@@ -117,10 +169,18 @@
         pointer-events: auto;
       }
 
+      body.touch-mode .channel-label {
+        font-size: 16px;
+      }
+
       .channel-subscribers {
         font-size: 16px;
         opacity: 0.8;
         margin-top: 5px;
+      }
+
+      body.touch-mode .channel-subscribers {
+        font-size: 13px;
       }
 
       .channel-info {
@@ -132,7 +192,7 @@
         padding: 15px;
         border-radius: 10px;
         margin-top: 20px;
-        width: 300px;
+        width: min(300px, 80vw);
         opacity: 0;
         transition: opacity 0.3s ease;
         pointer-events: none;
@@ -175,10 +235,14 @@
         border-radius: 10px;
         pointer-events: auto;
       }
+
+      body.touch-mode #controls {
+        display: none;
+      }
       
       #premium-button {
         position: absolute;
-        top: 20px;
+        top: max(20px, env(safe-area-inset-top));
         right: 20px;
         background: #FF0000;
         color: white;
@@ -189,6 +253,11 @@
         cursor: pointer;
         pointer-events: auto;
         transition: transform 0.2s ease;
+      }
+
+      body.touch-mode #premium-button {
+        padding: 8px 12px;
+        font-size: 12px;
       }
       
       #premium-button:hover {
@@ -237,7 +306,7 @@
       
       #tutorial {
         position: absolute;
-        bottom: 20px;
+        bottom: max(20px, env(safe-area-inset-bottom));
         left: 50%;
         transform: translateX(-50%);
         background: rgba(0, 0, 0, 0.8);
@@ -245,6 +314,7 @@
         border-radius: 10px;
         text-align: center;
         pointer-events: auto;
+        width: min(92vw, 420px);
       }
       
       #tutorial.hidden {
@@ -262,104 +332,122 @@
         pointer-events: none;
       }
 
-      #mobile-channel-list {
+      body.touch-mode #viewport-hint {
         display: none;
       }
 
-      body.mobile-mode {
-        overflow-y: auto;
-        overflow-x: hidden;
-        -webkit-overflow-scrolling: touch;
-        perspective: none;
-      }
-
-      body.mobile-mode #display-container,
-      body.mobile-mode #viewport-hint,
-      body.mobile-mode #controls,
-      body.mobile-mode #tutorial {
+      #touch-controls {
         display: none;
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 900;
       }
 
-      body.mobile-mode #mobile-channel-list {
+      body.touch-mode #touch-controls {
         display: block;
+      }
+
+      #move-pad {
+        position: absolute;
+        left: max(16px, env(safe-area-inset-left));
+        bottom: max(110px, calc(env(safe-area-inset-bottom) + 90px));
+        width: 150px;
+        height: 150px;
+        pointer-events: auto;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(3, 1fr);
+        gap: 6px;
+      }
+
+      .move-button {
+        background: rgba(0, 0, 0, 0.65);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        color: white;
+        border-radius: 10px;
+        font-size: 18px;
+        font-weight: bold;
+        touch-action: manipulation;
+      }
+
+      .move-button:active {
+        background: rgba(255, 0, 0, 0.75);
+      }
+
+      .move-button[data-move="forward"] { grid-column: 2; grid-row: 1; }
+      .move-button[data-move="left"] { grid-column: 1; grid-row: 2; }
+      .move-button[data-move="right"] { grid-column: 3; grid-row: 2; }
+      .move-button[data-move="back"] { grid-column: 2; grid-row: 3; }
+      .move-button[data-move="up"] { grid-column: 1; grid-row: 1; }
+      .move-button[data-move="down"] { grid-column: 3; grid-row: 1; }
+      .move-button[data-move="rotate-left"] { grid-column: 1; grid-row: 3; }
+      .move-button[data-move="rotate-right"] { grid-column: 3; grid-row: 3; }
+
+      #video-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 3000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         padding: 16px;
-        padding-top: max(16px, env(safe-area-inset-top));
-        padding-bottom: max(24px, env(safe-area-inset-bottom));
       }
 
-      body.mobile-mode #premium-button {
-        top: max(12px, env(safe-area-inset-top));
-        right: 12px;
-        padding: 8px 12px;
-        font-size: 12px;
-      }
-
-      body.mobile-mode #mobile-header {
-        display: block;
-        margin: 56px 0 20px;
-      }
-
-      #mobile-header {
+      #video-modal.hidden {
         display: none;
       }
 
-      #mobile-header h1 {
-        margin: 0 0 8px;
-        font-size: 24px;
+      .video-modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.85);
       }
 
-      #mobile-header p {
-        margin: 0;
-        opacity: 0.85;
-        line-height: 1.4;
-      }
-
-      .mobile-channel-card {
-        background: rgba(255, 255, 255, 0.05);
+      .video-modal-content {
+        position: relative;
+        width: min(960px, 100%);
+        background: #111;
         border-radius: 12px;
-        padding: 14px;
-        margin-bottom: 18px;
+        padding: 16px;
+        z-index: 1;
       }
 
-      .mobile-channel-title {
-        margin: 0 0 6px;
+      .video-modal-close {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 36px;
+        height: 36px;
+        border: none;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.15);
+        color: white;
+        font-size: 24px;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      #video-modal-title {
+        margin: 0 48px 12px 0;
         font-size: 20px;
       }
 
-      .mobile-channel-meta {
-        margin: 0 0 12px;
-        opacity: 0.8;
-        font-size: 14px;
-      }
-
-      .mobile-player-wrapper {
+      #video-modal-player {
         position: relative;
         width: 100%;
         padding-top: 56.25%;
+        background: #000;
         border-radius: 10px;
         overflow: hidden;
-        background: #000;
       }
 
-      .mobile-player-iframe {
+      .video-modal-iframe {
         position: absolute;
-        top: 0;
-        left: 0;
+        inset: 0;
         width: 100%;
         height: 100%;
         border: 0;
-      }
-
-      .mobile-open-channel-button {
-        width: 100%;
-        margin-top: 12px;
-        background: #333;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 12px;
-        font-size: 15px;
-        font-weight: bold;
       }
     </style>
   </head>
@@ -371,13 +459,6 @@
     </div>
     
     <div id="display-container"></div>
-
-    <main id="mobile-channel-list">
-      <header id="mobile-header">
-        <h1>YouTube Command Center</h1>
-        <p>Scroll through channels and tap play to watch inside the app.</p>
-      </header>
-    </main>
     
     <div id="ui-container">
       <div id="controls">
@@ -396,19 +477,40 @@
       </button>
       
       <div id="tutorial">
-        Walk up to a channel screen and use the player controls to watch inside the app.
+        <span id="tutorial-text">Walk up to a channel screen and use the player controls to watch inside the app.</span>
         <br>
         <button onclick="this.parentElement.classList.add('hidden')" style="margin-top: 10px">Got it!</button>
       </div>
     </div>
 
+    <div id="touch-controls">
+      <div id="move-pad">
+        <button type="button" class="move-button" data-move="up" aria-label="Move up">Up</button>
+        <button type="button" class="move-button" data-move="forward" aria-label="Move forward">F</button>
+        <button type="button" class="move-button" data-move="down" aria-label="Move down">Dn</button>
+        <button type="button" class="move-button" data-move="left" aria-label="Move left">L</button>
+        <button type="button" class="move-button" data-move="right" aria-label="Move right">R</button>
+        <button type="button" class="move-button" data-move="back" aria-label="Move back">B</button>
+        <button type="button" class="move-button" data-move="rotate-left" aria-label="Rotate left">Q</button>
+        <button type="button" class="move-button" data-move="rotate-right" aria-label="Rotate right">E</button>
+      </div>
+    </div>
+
+    <div id="video-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="video-modal-title">
+      <div class="video-modal-backdrop"></div>
+      <div class="video-modal-content">
+        <button type="button" class="video-modal-close" aria-label="Close video">&times;</button>
+        <h2 id="video-modal-title"></h2>
+        <div id="video-modal-player"></div>
+      </div>
+    </div>
+
     <script>
-      window.isMobileLayout = window.matchMedia('(max-width: 900px)').matches
-        || window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+      window.isTouchLayout = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
     </script>
     <script src="js/channels.js"></script>
     <script>
-      if (!window.isMobileLayout) {
+      if (!window.isTouchLayout) {
         const youtubeApiScript = document.createElement('script');
         youtubeApiScript.src = 'https://www.youtube.com/iframe_api';
         document.head.appendChild(youtubeApiScript);
@@ -417,34 +519,41 @@
     <script>
       document.addEventListener('DOMContentLoaded', function() {
         const loadingScreen = document.getElementById('loading-screen');
-        const isMobileLayout = window.isMobileLayout;
-
-        if (isMobileLayout) {
-          setTimeout(() => {
-            loadingScreen.classList.add('hidden');
-          }, 800);
-          return;
-        }
-        
-        let cameraX = 0;
-        let cameraY = 0;
-        let cameraZ = 0;
-        let rotationY = 0;
-        let rotationX = 0;
-        const moveSpeed = 50;
-        const rotateSpeed = 2;
-        const mouseLookSpeed = 0.15;
-        const keys = {};
-        let isDragging = false;
-        let lastMouseX = 0;
-        let lastMouseY = 0;
-        
         const container = document.getElementById('display-container');
+        const tutorialText = document.getElementById('tutorial-text');
+        const isTouchLayout = window.isTouchLayout;
+
+        if (isTouchLayout && tutorialText) {
+          tutorialText.textContent = 'Drag to look around, use the move pad, walk up to a screen, then tap it to watch.';
+        }
+
         if (!container) {
           console.error('Display container not found!');
           return;
         }
-        
+
+        let cameraX = 0;
+        let cameraY = 0;
+        let cameraZ = isTouchLayout ? 320 : 0;
+        let rotationY = 0;
+        let rotationX = 0;
+        const moveSpeed = isTouchLayout ? 28 : 50;
+        const rotateSpeed = isTouchLayout ? 1.5 : 2;
+        const mouseLookSpeed = 0.15;
+        const touchLookSpeed = 0.2;
+        const keys = {};
+        let isDragging = false;
+        let lastPointerX = 0;
+        let lastPointerY = 0;
+        let activeTouchLookId = null;
+
+        function shouldIgnoreCameraInput(target) {
+          return target.closest('.channel-display')
+            || target.closest('#ui-container')
+            || target.closest('#video-modal')
+            || target.closest('#move-pad');
+        }
+
         document.addEventListener('keydown', (event) => {
           keys[event.code] = true;
         });
@@ -454,14 +563,13 @@
         });
 
         document.addEventListener('mousedown', (event) => {
-          // Only start camera drag when clicking outside embedded players and UI controls
-          if (event.target.closest('.channel-display') || event.target.closest('#ui-container')) {
+          if (shouldIgnoreCameraInput(event.target)) {
             return;
           }
 
           isDragging = true;
-          lastMouseX = event.clientX;
-          lastMouseY = event.clientY;
+          lastPointerX = event.clientX;
+          lastPointerY = event.clientY;
         });
 
         document.addEventListener('mouseup', () => {
@@ -477,13 +585,108 @@
             return;
           }
 
-          const deltaX = event.clientX - lastMouseX;
-          const deltaY = event.clientY - lastMouseY;
+          const deltaX = event.clientX - lastPointerX;
+          const deltaY = event.clientY - lastPointerY;
           rotationY += deltaX * mouseLookSpeed;
           rotationX = Math.max(-30, Math.min(30, rotationX - deltaY * mouseLookSpeed));
-          lastMouseX = event.clientX;
-          lastMouseY = event.clientY;
+          lastPointerX = event.clientX;
+          lastPointerY = event.clientY;
         });
+
+        document.addEventListener('touchstart', (event) => {
+          if (shouldIgnoreCameraInput(event.target)) {
+            return;
+          }
+
+          const touch = event.changedTouches[0];
+          activeTouchLookId = touch.identifier;
+          lastPointerX = touch.clientX;
+          lastPointerY = touch.clientY;
+        }, { passive: true });
+
+        document.addEventListener('touchmove', (event) => {
+          const touch = Array.from(event.changedTouches).find((item) => item.identifier === activeTouchLookId);
+          if (!touch) {
+            return;
+          }
+
+          const deltaX = touch.clientX - lastPointerX;
+          const deltaY = touch.clientY - lastPointerY;
+          rotationY += deltaX * touchLookSpeed;
+          rotationX = Math.max(-30, Math.min(30, rotationX - deltaY * touchLookSpeed));
+          lastPointerX = touch.clientX;
+          lastPointerY = touch.clientY;
+        }, { passive: true });
+
+        document.addEventListener('touchend', (event) => {
+          const endedTouch = Array.from(event.changedTouches).find((item) => item.identifier === activeTouchLookId);
+          if (endedTouch) {
+            activeTouchLookId = null;
+          }
+        });
+
+        const moveActions = {
+          forward: () => {
+            cameraZ += Math.cos(rotationY * Math.PI / 180) * moveSpeed;
+            cameraX += Math.sin(rotationY * Math.PI / 180) * moveSpeed;
+          },
+          back: () => {
+            cameraZ -= Math.cos(rotationY * Math.PI / 180) * moveSpeed;
+            cameraX -= Math.sin(rotationY * Math.PI / 180) * moveSpeed;
+          },
+          left: () => {
+            cameraX -= Math.cos(rotationY * Math.PI / 180) * moveSpeed;
+            cameraZ += Math.sin(rotationY * Math.PI / 180) * moveSpeed;
+          },
+          right: () => {
+            cameraX += Math.cos(rotationY * Math.PI / 180) * moveSpeed;
+            cameraZ -= Math.sin(rotationY * Math.PI / 180) * moveSpeed;
+          },
+          up: () => {
+            cameraY += moveSpeed;
+          },
+          down: () => {
+            cameraY -= moveSpeed;
+          },
+          'rotate-left': () => {
+            rotationY -= rotateSpeed * 4;
+          },
+          'rotate-right': () => {
+            rotationY += rotateSpeed * 4;
+          }
+        };
+
+        function bindHoldButton(button) {
+          const actionName = button.dataset.move;
+          const action = moveActions[actionName];
+          if (!action) {
+            return;
+          }
+
+          let holdInterval = null;
+
+          const startHold = (event) => {
+            event.preventDefault();
+            action();
+            holdInterval = window.setInterval(action, 80);
+          };
+
+          const stopHold = () => {
+            if (holdInterval) {
+              window.clearInterval(holdInterval);
+              holdInterval = null;
+            }
+          };
+
+          button.addEventListener('mousedown', startHold);
+          button.addEventListener('mouseup', stopHold);
+          button.addEventListener('mouseleave', stopHold);
+          button.addEventListener('touchstart', startHold, { passive: false });
+          button.addEventListener('touchend', stopHold);
+          button.addEventListener('touchcancel', stopHold);
+        }
+
+        document.querySelectorAll('.move-button').forEach(bindHoldButton);
         
         function updateCamera() {
           if (keys['KeyW'] || keys['KeyS']) {
@@ -526,7 +729,7 @@
         
         setTimeout(() => {
           loadingScreen.classList.add('hidden');
-        }, 1500);
+        }, isTouchLayout ? 800 : 1500);
       });
     </script>
   </body>

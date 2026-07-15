@@ -29,18 +29,46 @@ const channels = [
     }
 ];
 
-// Detect phones/tablets where the 3D scene and keyboard controls do not work well
-function isMobileDevice() {
-    const isSmallScreen = window.matchMedia('(max-width: 900px)').matches;
-    const isTouchFirst = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-    return isSmallScreen || isTouchFirst;
+// Detect touch-first devices that need on-screen controls
+function isTouchDevice() {
+    return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+}
+
+function getSceneSettings() {
+    const isCompact = window.matchMedia('(max-width: 900px)').matches;
+
+    if (isCompact) {
+        return {
+            radius: 650,
+            angleStep: 35,
+            startAngle: -35,
+            screenWidth: 360,
+            screenHeight: 202,
+            labelOffset: -72
+        };
+    }
+
+    return {
+        radius: 1400,
+        angleStep: 30,
+        startAngle: -30,
+        screenWidth: 1280,
+        screenHeight: 720,
+        labelOffset: -90
+    };
+}
+
+function applySceneVariables(settings) {
+    const root = document.documentElement;
+    root.style.setProperty('--screen-width', `${settings.screenWidth}px`);
+    root.style.setProperty('--screen-height', `${settings.screenHeight}px`);
+    root.style.setProperty('--label-offset', `${settings.labelOffset}px`);
 }
 
 // Track pending YouTube players until the iframe API is ready
 const pendingPlayers = [];
 let youtubeApiReady = false;
 
-// Called by the YouTube iframe API script when it finishes loading
 window.onYouTubeIframeAPIReady = function() {
     youtubeApiReady = true;
     pendingPlayers.splice(0).forEach((createPlayer) => createPlayer());
@@ -68,7 +96,6 @@ function createLoadingPlaceholder(message) {
 }
 
 function showEmbedError(container, channel, placeholder, message) {
-    // Replace the loading state with a visible error and retry option
     placeholder.innerHTML = `
         <div class="placeholder-content">
             <div class="placeholder-message">${message}</div>
@@ -77,8 +104,7 @@ function showEmbedError(container, channel, placeholder, message) {
         </div>
     `;
 
-    const retryButton = placeholder.querySelector('.retry-button');
-    retryButton.addEventListener('click', (event) => {
+    placeholder.querySelector('.retry-button').addEventListener('click', (event) => {
         event.stopPropagation();
         container.querySelector('.channel-player-host')?.remove();
         placeholder.remove();
@@ -86,18 +112,55 @@ function showEmbedError(container, channel, placeholder, message) {
         container.replaceWith(replacement);
     });
 
-    const openButton = placeholder.querySelector('.open-channel-button');
-    openButton.addEventListener('click', (event) => {
+    placeholder.querySelector('.open-channel-button').addEventListener('click', (event) => {
         event.stopPropagation();
         window.open(channel.url, '_blank');
     });
 }
 
+function openVideoModal(channel) {
+    const modal = document.getElementById('video-modal');
+    const title = document.getElementById('video-modal-title');
+    const playerHost = document.getElementById('video-modal-player');
+    if (!modal || !title || !playerHost) {
+        return;
+    }
+
+    title.textContent = channel.name;
+    playerHost.innerHTML = '';
+
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.youtube.com/embed/${channel.featuredVideoId}?playsinline=1&rel=0&modestbranding=1&autoplay=1`;
+    iframe.title = `${channel.name} featured video`;
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    iframe.allowFullscreen = true;
+    iframe.className = 'video-modal-iframe';
+    playerHost.appendChild(iframe);
+
+    modal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+}
+
+function closeVideoModal() {
+    const modal = document.getElementById('video-modal');
+    const playerHost = document.getElementById('video-modal-player');
+    if (!modal || !playerHost) {
+        return;
+    }
+
+    playerHost.innerHTML = '';
+    modal.classList.add('hidden');
+    document.body.classList.remove('modal-open');
+}
+
+window.openVideoModal = openVideoModal;
+window.closeVideoModal = closeVideoModal;
+
 function createYouTubePlayer(channel, playerHost, placeholder) {
     queueYouTubePlayer(() => {
         const player = new YT.Player(playerHost, {
-            height: '720',
-            width: '1280',
+            height: '100%',
+            width: '100%',
             videoId: channel.featuredVideoId,
             playerVars: {
                 autoplay: 0,
@@ -132,7 +195,6 @@ function createYouTubePlayer(channel, playerHost, placeholder) {
             }
         });
 
-        // Guard against silent API failures
         setTimeout(() => {
             if (placeholder.isConnected) {
                 showEmbedError(
@@ -151,7 +213,32 @@ function createYouTubePlayer(channel, playerHost, placeholder) {
     });
 }
 
-function createChannelDisplay(channel, position, rotation) {
+function createTouchChannelScreen(channel) {
+    const screen = document.createElement('button');
+    screen.type = 'button';
+    screen.className = 'channel-touch-screen';
+    screen.setAttribute('aria-label', `Watch ${channel.name}`);
+
+    const thumbnail = document.createElement('img');
+    thumbnail.className = 'channel-thumbnail';
+    thumbnail.src = `https://i.ytimg.com/vi/${channel.featuredVideoId}/hqdefault.jpg`;
+    thumbnail.alt = `${channel.name} preview`;
+
+    const playOverlay = document.createElement('div');
+    playOverlay.className = 'channel-play-overlay';
+    playOverlay.innerHTML = '<span class="channel-play-icon">&#9654;</span><span>Tap to watch</span>';
+
+    screen.appendChild(thumbnail);
+    screen.appendChild(playOverlay);
+    screen.addEventListener('click', (event) => {
+        event.stopPropagation();
+        openVideoModal(channel);
+    });
+
+    return screen;
+}
+
+function createChannelDisplay(channel, position, rotation, useTouchScreen) {
     console.log('Creating display for channel:', channel.name, 'at position:', position);
 
     const container = document.createElement('div');
@@ -163,15 +250,19 @@ function createChannelDisplay(channel, position, rotation) {
     const inner = document.createElement('div');
     inner.className = 'channel-display-inner';
 
-    const placeholder = createLoadingPlaceholder();
-    inner.appendChild(placeholder);
+    if (useTouchScreen) {
+        inner.appendChild(createTouchChannelScreen(channel));
+    } else {
+        const placeholder = createLoadingPlaceholder();
+        inner.appendChild(placeholder);
 
-    const playerHost = document.createElement('div');
-    playerHost.className = 'channel-player-host';
-    playerHost.id = `player-${channel.channelId}`;
-    inner.appendChild(playerHost);
+        const playerHost = document.createElement('div');
+        playerHost.className = 'channel-player-host';
+        playerHost.id = `player-${channel.channelId}`;
+        inner.appendChild(playerHost);
 
-    createYouTubePlayer(channel, playerHost, placeholder);
+        createYouTubePlayer(channel, playerHost, placeholder);
+    }
 
     const label = document.createElement('div');
     label.className = 'channel-label';
@@ -194,7 +285,7 @@ function createChannelDisplay(channel, position, rotation) {
         <div class="channel-info-body">
             <div>Name: ${channel.name}</div>
             <div>Subscribers: ${channel.subscribers}</div>
-            <div class="channel-info-tip">Use the player controls to watch inside the app</div>
+            <div class="channel-info-tip">${useTouchScreen ? 'Tap the screen to watch inside the app' : 'Use the player controls to watch inside the app'}</div>
         </div>
     `;
 
@@ -213,64 +304,8 @@ function createChannelDisplay(channel, position, rotation) {
     return container;
 }
 
-function createMobileChannelCard(channel) {
-    const card = document.createElement('article');
-    card.className = 'mobile-channel-card';
-
-    const title = document.createElement('h2');
-    title.className = 'mobile-channel-title';
-    title.textContent = channel.name;
-    title.style.color = channel.color;
-
-    const meta = document.createElement('p');
-    meta.className = 'mobile-channel-meta';
-    meta.textContent = `${channel.subscribers} subscribers`;
-
-    const playerWrapper = document.createElement('div');
-    playerWrapper.className = 'mobile-player-wrapper';
-
-    const iframe = document.createElement('iframe');
-    iframe.className = 'mobile-player-iframe';
-    iframe.src = `https://www.youtube.com/embed/${channel.featuredVideoId}?playsinline=1&rel=0&modestbranding=1&enablejsapi=0`;
-    iframe.title = `${channel.name} featured video`;
-    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-    iframe.allowFullscreen = true;
-    iframe.loading = 'lazy';
-
-    const openButton = document.createElement('button');
-    openButton.type = 'button';
-    openButton.className = 'mobile-open-channel-button';
-    openButton.textContent = 'Open channel on YouTube';
-    openButton.addEventListener('click', () => {
-        window.open(channel.url, '_blank');
-    });
-
-    playerWrapper.appendChild(iframe);
-    card.appendChild(title);
-    card.appendChild(meta);
-    card.appendChild(playerWrapper);
-    card.appendChild(openButton);
-
-    return card;
-}
-
-function setupMobileLayout() {
-    console.log('Setting up mobile layout...');
-    document.body.classList.add('mobile-mode');
-
-    const mobileContainer = document.getElementById('mobile-channel-list');
-    if (!mobileContainer) {
-        console.error('Mobile channel list not found!');
-        return;
-    }
-
-    channels.forEach((channel) => {
-        mobileContainer.appendChild(createMobileChannelCard(channel));
-    });
-}
-
-function setupDesktopScene() {
-    console.log('Setting up desktop 3D scene...');
+function setupScene() {
+    console.log('Setting up 3D scene...');
 
     const displayContainer = document.getElementById('display-container');
     if (!displayContainer) {
@@ -278,37 +313,36 @@ function setupDesktopScene() {
         return;
     }
 
-    // Place displays close enough to read and interact with embedded players
-    const radius = 1400;
-    const angleStep = 30;
-    const startAngle = -30;
-    const displayHeight = 720;
+    const settings = getSceneSettings();
+    applySceneVariables(settings);
+
+    if (isTouchDevice()) {
+        document.body.classList.add('touch-mode');
+    }
+
+    const useTouchScreen = isTouchDevice();
+    const displayHeight = settings.screenHeight;
 
     channels.forEach((channel, index) => {
-        const angle = startAngle + (index * angleStep);
+        const angle = settings.startAngle + (index * settings.angleStep);
         const angleRad = angle * (Math.PI / 180);
 
         const position = {
-            x: radius * Math.sin(angleRad),
+            x: settings.radius * Math.sin(angleRad),
             y: displayHeight / 2,
-            z: -radius * Math.cos(angleRad)
+            z: -settings.radius * Math.cos(angleRad)
         };
 
-        const display = createChannelDisplay(channel, position, -angle);
+        const display = createChannelDisplay(channel, position, -angle, useTouchScreen);
         displayContainer.appendChild(display);
     });
 }
 
-function setupScene() {
-    if (isMobileDevice()) {
-        setupMobileLayout();
-        return;
-    }
-
-    setupDesktopScene();
-}
-
 document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('video-modal');
+    modal?.querySelector('.video-modal-close')?.addEventListener('click', closeVideoModal);
+    modal?.querySelector('.video-modal-backdrop')?.addEventListener('click', closeVideoModal);
+
     console.log('DOM loaded, setting up displays...');
     setupScene();
 });
