@@ -25,34 +25,133 @@
       .channel-display {
         position: absolute;
         transform-style: preserve-3d;
+        pointer-events: auto;
+      }
+
+      .channel-display-inner {
         transition: transform 0.3s ease;
       }
-      
-      .channel-display:hover {
+
+      .channel-display:hover .channel-display-inner {
         transform: scale(1.05);
       }
-      
-      .channel-display iframe {
-        border: none;
+
+      .channel-placeholder,
+      .channel-player-host {
+        width: 1280px;
+        height: 720px;
         border-radius: 10px;
         box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
         background: #000;
+      }
+
+      .channel-placeholder {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .placeholder-content {
+        text-align: center;
+        padding: 20px;
+      }
+
+      .placeholder-message {
+        margin-top: 20px;
+        max-width: 420px;
+        line-height: 1.4;
+      }
+
+      .retry-button,
+      .open-channel-button,
+      .open-channel-link {
+        margin-top: 12px;
+        background: #FF0000;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 8px 14px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      .open-channel-button {
+        margin-left: 8px;
+        background: #333;
+      }
+
+      .open-channel-link {
+        display: inline-block;
+        margin-top: 8px;
+        font-size: 14px;
+        background: rgba(0, 0, 0, 0.45);
+      }
+
+      .channel-player-host {
         opacity: 0;
         transition: opacity 0.5s ease;
       }
-      
-      .channel-display iframe.loaded {
+
+      .channel-player-host.loaded {
         opacity: 1;
+      }
+
+      .channel-player-host iframe {
+        border: none;
+        border-radius: 10px;
+        width: 1280px;
+        height: 720px;
+        background: #000;
       }
       
       .channel-label {
         position: absolute;
-        top: -40px;
+        top: -90px;
         width: 100%;
         text-align: center;
         font-size: 24px;
         font-weight: bold;
         text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        pointer-events: auto;
+      }
+
+      .channel-subscribers {
+        font-size: 16px;
+        opacity: 0.8;
+        margin-top: 5px;
+      }
+
+      .channel-info {
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        padding: 15px;
+        border-radius: 10px;
+        margin-top: 20px;
+        width: 300px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+      }
+
+      .channel-info.visible {
+        opacity: 1;
+      }
+
+      .channel-info-title {
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+
+      .channel-info-body {
+        font-size: 14px;
+        opacity: 0.8;
+      }
+
+      .channel-info-tip {
+        margin-top: 10px;
       }
       
       #ui-container {
@@ -149,6 +248,17 @@
       #tutorial.hidden {
         display: none;
       }
+
+      #viewport-hint {
+        position: absolute;
+        top: 80px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-size: 14px;
+        pointer-events: none;
+      }
     </style>
   </head>
   <body>
@@ -167,34 +277,40 @@
         <p><span class="key">Q</span><span class="key">E</span> - Rotate</p>
         <p><span class="key">Space</span> - Up</p>
         <p><span class="key">Shift</span> - Down</p>
-        <p><span class="key">Mouse</span> - Look</p>
+        <p><span class="key">Mouse</span> - Look (drag on empty space)</p>
       </div>
+
+      <div id="viewport-hint">Click and drag the background to look around</div>
       
       <button id="premium-button" onclick="window.open('https://yourwebsite.com/premium', '_blank')">
         Try Premium Version
       </button>
       
       <div id="tutorial">
-        Click on a channel display to view its content
+        Walk up to a channel screen and use the player controls to watch inside the app.
         <br>
         <button onclick="this.parentElement.classList.add('hidden')" style="margin-top: 10px">Got it!</button>
       </div>
     </div>
-    
+
+    <script src="https://www.youtube.com/iframe_api"></script>
     <script src="js/channels.js"></script>
     <script>
-      // Wait for DOM and display container to be ready
       document.addEventListener('DOMContentLoaded', function() {
         const loadingScreen = document.getElementById('loading-screen');
         
-        // Camera controls
         let cameraX = 0;
         let cameraY = 0;
         let cameraZ = 0;
         let rotationY = 0;
+        let rotationX = 0;
         const moveSpeed = 50;
         const rotateSpeed = 2;
+        const mouseLookSpeed = 0.15;
         const keys = {};
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
         
         const container = document.getElementById('display-container');
         if (!container) {
@@ -202,33 +318,76 @@
           return;
         }
         
-        document.addEventListener('keydown', (e) => keys[e.code] = true);
-        document.addEventListener('keyup', (e) => keys[e.code] = false);
+        document.addEventListener('keydown', (event) => {
+          keys[event.code] = true;
+        });
+
+        document.addEventListener('keyup', (event) => {
+          keys[event.code] = false;
+        });
+
+        document.addEventListener('mousedown', (event) => {
+          // Only start camera drag when clicking outside embedded players and UI controls
+          if (event.target.closest('.channel-display') || event.target.closest('#ui-container')) {
+            return;
+          }
+
+          isDragging = true;
+          lastMouseX = event.clientX;
+          lastMouseY = event.clientY;
+        });
+
+        document.addEventListener('mouseup', () => {
+          isDragging = false;
+        });
+
+        document.addEventListener('mouseleave', () => {
+          isDragging = false;
+        });
+
+        document.addEventListener('mousemove', (event) => {
+          if (!isDragging) {
+            return;
+          }
+
+          const deltaX = event.clientX - lastMouseX;
+          const deltaY = event.clientY - lastMouseY;
+          rotationY += deltaX * mouseLookSpeed;
+          rotationX = Math.max(-30, Math.min(30, rotationX - deltaY * mouseLookSpeed));
+          lastMouseX = event.clientX;
+          lastMouseY = event.clientY;
+        });
         
         function updateCamera() {
-          // Forward/backward (W/S)
           if (keys['KeyW'] || keys['KeyS']) {
             const multiplier = keys['KeyW'] ? 1 : -1;
             cameraZ += Math.cos(rotationY * Math.PI / 180) * moveSpeed * multiplier;
             cameraX += Math.sin(rotationY * Math.PI / 180) * moveSpeed * multiplier;
           }
           
-          // Left/right (A/D)
           if (keys['KeyA'] || keys['KeyD']) {
             const multiplier = keys['KeyD'] ? 1 : -1;
             cameraX += Math.cos(rotationY * Math.PI / 180) * moveSpeed * multiplier;
             cameraZ -= Math.sin(rotationY * Math.PI / 180) * moveSpeed * multiplier;
           }
           
-          // Up/down (Space/Shift)
-          if (keys['Space']) cameraY += moveSpeed;
-          if (keys['ShiftLeft']) cameraY -= moveSpeed;
+          if (keys['Space']) {
+            cameraY += moveSpeed;
+          }
+
+          if (keys['ShiftLeft']) {
+            cameraY -= moveSpeed;
+          }
           
-          // Rotation (Q/E)
-          if (keys['KeyQ']) rotationY -= rotateSpeed;
-          if (keys['KeyE']) rotationY += rotateSpeed;
+          if (keys['KeyQ']) {
+            rotationY -= rotateSpeed;
+          }
+
+          if (keys['KeyE']) {
+            rotationY += rotateSpeed;
+          }
           
-          container.style.transform = `translateZ(${-cameraZ}px) translateX(${-cameraX}px) translateY(${-cameraY}px) rotateY(${rotationY}deg)`;
+          container.style.transform = `translateZ(${-cameraZ}px) translateX(${-cameraX}px) translateY(${-cameraY}px) rotateX(${rotationX}deg) rotateY(${rotationY}deg)`;
         }
         
         function animate() {
@@ -236,19 +395,12 @@
           requestAnimationFrame(animate);
         }
         
-        // Start animation loop
         animate();
         
-        // Hide loading screen after everything is ready
         setTimeout(() => {
           loadingScreen.classList.add('hidden');
         }, 1500);
       });
     </script>
   </body>
-</html> 
-      
-      animate();
-    </script>
-  </body>
-</html> 
+</html>
