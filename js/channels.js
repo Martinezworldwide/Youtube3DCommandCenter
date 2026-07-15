@@ -29,6 +29,13 @@ const channels = [
     }
 ];
 
+// Detect phones/tablets where the 3D scene and keyboard controls do not work well
+function isMobileDevice() {
+    const isSmallScreen = window.matchMedia('(max-width: 900px)').matches;
+    const isTouchFirst = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    return isSmallScreen || isTouchFirst;
+}
+
 // Track pending YouTube players until the iframe API is ready
 const pendingPlayers = [];
 let youtubeApiReady = false;
@@ -206,8 +213,64 @@ function createChannelDisplay(channel, position, rotation) {
     return container;
 }
 
-function setupScene() {
-    console.log('Setting up scene...');
+function createMobileChannelCard(channel) {
+    const card = document.createElement('article');
+    card.className = 'mobile-channel-card';
+
+    const title = document.createElement('h2');
+    title.className = 'mobile-channel-title';
+    title.textContent = channel.name;
+    title.style.color = channel.color;
+
+    const meta = document.createElement('p');
+    meta.className = 'mobile-channel-meta';
+    meta.textContent = `${channel.subscribers} subscribers`;
+
+    const playerWrapper = document.createElement('div');
+    playerWrapper.className = 'mobile-player-wrapper';
+
+    const iframe = document.createElement('iframe');
+    iframe.className = 'mobile-player-iframe';
+    iframe.src = `https://www.youtube.com/embed/${channel.featuredVideoId}?playsinline=1&rel=0&modestbranding=1&enablejsapi=0`;
+    iframe.title = `${channel.name} featured video`;
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    iframe.allowFullscreen = true;
+    iframe.loading = 'lazy';
+
+    const openButton = document.createElement('button');
+    openButton.type = 'button';
+    openButton.className = 'mobile-open-channel-button';
+    openButton.textContent = 'Open channel on YouTube';
+    openButton.addEventListener('click', () => {
+        window.open(channel.url, '_blank');
+    });
+
+    playerWrapper.appendChild(iframe);
+    card.appendChild(title);
+    card.appendChild(meta);
+    card.appendChild(playerWrapper);
+    card.appendChild(openButton);
+
+    return card;
+}
+
+function setupMobileLayout() {
+    console.log('Setting up mobile layout...');
+    document.body.classList.add('mobile-mode');
+
+    const mobileContainer = document.getElementById('mobile-channel-list');
+    if (!mobileContainer) {
+        console.error('Mobile channel list not found!');
+        return;
+    }
+
+    channels.forEach((channel) => {
+        mobileContainer.appendChild(createMobileChannelCard(channel));
+    });
+}
+
+function setupDesktopScene() {
+    console.log('Setting up desktop 3D scene...');
 
     const displayContainer = document.getElementById('display-container');
     if (!displayContainer) {
@@ -234,6 +297,15 @@ function setupScene() {
         const display = createChannelDisplay(channel, position, -angle);
         displayContainer.appendChild(display);
     });
+}
+
+function setupScene() {
+    if (isMobileDevice()) {
+        setupMobileLayout();
+        return;
+    }
+
+    setupDesktopScene();
 }
 
 document.addEventListener('DOMContentLoaded', function() {

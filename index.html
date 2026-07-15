@@ -2,6 +2,8 @@
 <html>
   <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>YouTube Command Center - Web Demo</title>
     <meta name="description" content="3D visualization of YouTube channels - Try the free web demo!">
     <style>
@@ -259,6 +261,106 @@
         font-size: 14px;
         pointer-events: none;
       }
+
+      #mobile-channel-list {
+        display: none;
+      }
+
+      body.mobile-mode {
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        perspective: none;
+      }
+
+      body.mobile-mode #display-container,
+      body.mobile-mode #viewport-hint,
+      body.mobile-mode #controls,
+      body.mobile-mode #tutorial {
+        display: none;
+      }
+
+      body.mobile-mode #mobile-channel-list {
+        display: block;
+        padding: 16px;
+        padding-top: max(16px, env(safe-area-inset-top));
+        padding-bottom: max(24px, env(safe-area-inset-bottom));
+      }
+
+      body.mobile-mode #premium-button {
+        top: max(12px, env(safe-area-inset-top));
+        right: 12px;
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+
+      body.mobile-mode #mobile-header {
+        display: block;
+        margin: 56px 0 20px;
+      }
+
+      #mobile-header {
+        display: none;
+      }
+
+      #mobile-header h1 {
+        margin: 0 0 8px;
+        font-size: 24px;
+      }
+
+      #mobile-header p {
+        margin: 0;
+        opacity: 0.85;
+        line-height: 1.4;
+      }
+
+      .mobile-channel-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 18px;
+      }
+
+      .mobile-channel-title {
+        margin: 0 0 6px;
+        font-size: 20px;
+      }
+
+      .mobile-channel-meta {
+        margin: 0 0 12px;
+        opacity: 0.8;
+        font-size: 14px;
+      }
+
+      .mobile-player-wrapper {
+        position: relative;
+        width: 100%;
+        padding-top: 56.25%;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #000;
+      }
+
+      .mobile-player-iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
+
+      .mobile-open-channel-button {
+        width: 100%;
+        margin-top: 12px;
+        background: #333;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 15px;
+        font-weight: bold;
+      }
     </style>
   </head>
   <body>
@@ -269,6 +371,13 @@
     </div>
     
     <div id="display-container"></div>
+
+    <main id="mobile-channel-list">
+      <header id="mobile-header">
+        <h1>YouTube Command Center</h1>
+        <p>Scroll through channels and tap play to watch inside the app.</p>
+      </header>
+    </main>
     
     <div id="ui-container">
       <div id="controls">
@@ -293,11 +402,29 @@
       </div>
     </div>
 
-    <script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+      window.isMobileLayout = window.matchMedia('(max-width: 900px)').matches
+        || window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    </script>
     <script src="js/channels.js"></script>
+    <script>
+      if (!window.isMobileLayout) {
+        const youtubeApiScript = document.createElement('script');
+        youtubeApiScript.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(youtubeApiScript);
+      }
+    </script>
     <script>
       document.addEventListener('DOMContentLoaded', function() {
         const loadingScreen = document.getElementById('loading-screen');
+        const isMobileLayout = window.isMobileLayout;
+
+        if (isMobileLayout) {
+          setTimeout(() => {
+            loadingScreen.classList.add('hidden');
+          }, 800);
+          return;
+        }
         
         let cameraX = 0;
         let cameraY = 0;
