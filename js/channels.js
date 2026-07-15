@@ -1,158 +1,242 @@
-// Example channel data - replace with your actual channel data
+// Channel data with valid YouTube embed URLs resolved from live channel pages
 const channels = [
     {
         name: "Str1kerCoach",
         url: "https://www.youtube.com/@Str1kerCoach",
         subscribers: "1M",
         color: "#FF0000",
-        contentUrl: "https://www.youtube.com/embed?listType=user_uploads&list=@Str1kerCoach&autoplay=0"
+        channelId: "UCXJyzYcsGYaUjdx6yN-l8Wg",
+        uploadsPlaylistId: "UUXJyzYcsGYaUjdx6yN-l8Wg",
+        featuredVideoId: "eXEM3yga0Xw"
     },
     {
         name: "MartinezTV",
         url: "https://www.youtube.com/@martineztv3056",
         subscribers: "500K",
         color: "#00FF00",
-        contentUrl: "https://www.youtube.com/embed?listType=user_uploads&list=@martineztv3056&autoplay=0"
+        channelId: "UC7zSoBU65JBaivmoj9BbQAQ",
+        uploadsPlaylistId: "UU7zSoBU65JBaivmoj9BbQAQ",
+        featuredVideoId: "m-hK9fjUtcs"
     },
     {
         name: "EventsTV",
         url: "https://www.youtube.com/@eventstv6427",
         subscribers: "250K",
         color: "#0000FF",
-        contentUrl: "https://www.youtube.com/embed?listType=user_uploads&list=@eventstv6427&autoplay=0"
+        channelId: "UCHDCuixmw8MrGlSqcQTYKsA",
+        uploadsPlaylistId: "UUHDCuixmw8MrGlSqcQTYKsA",
+        featuredVideoId: "gNFwFeZwGjo"
     }
 ];
 
-function createLoadingPlaceholder() {
+// Track pending YouTube players until the iframe API is ready
+const pendingPlayers = [];
+let youtubeApiReady = false;
+
+// Called by the YouTube iframe API script when it finishes loading
+window.onYouTubeIframeAPIReady = function() {
+    youtubeApiReady = true;
+    pendingPlayers.splice(0).forEach((createPlayer) => createPlayer());
+};
+
+function queueYouTubePlayer(createPlayer) {
+    if (youtubeApiReady && window.YT && window.YT.Player) {
+        createPlayer();
+        return;
+    }
+
+    pendingPlayers.push(createPlayer);
+}
+
+function createLoadingPlaceholder(message) {
     const placeholder = document.createElement('div');
-    placeholder.style.width = '1280px';
-    placeholder.style.height = '720px';
-    placeholder.style.background = '#000';
-    placeholder.style.borderRadius = '10px';
-    placeholder.style.display = 'flex';
-    placeholder.style.justifyContent = 'center';
-    placeholder.style.alignItems = 'center';
-    placeholder.style.color = '#FFF';
+    placeholder.className = 'channel-placeholder';
     placeholder.innerHTML = `
-        <div style="text-align: center;">
+        <div class="placeholder-content">
             <div class="spinner"></div>
-            <div style="margin-top: 20px;">Loading channel content...</div>
+            <div class="placeholder-message">${message || 'Loading channel content...'}</div>
         </div>
     `;
     return placeholder;
 }
 
+function showEmbedError(container, channel, placeholder, message) {
+    // Replace the loading state with a visible error and retry option
+    placeholder.innerHTML = `
+        <div class="placeholder-content">
+            <div class="placeholder-message">${message}</div>
+            <button type="button" class="retry-button">Retry</button>
+            <button type="button" class="open-channel-button">Open on YouTube</button>
+        </div>
+    `;
+
+    const retryButton = placeholder.querySelector('.retry-button');
+    retryButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        container.querySelector('.channel-player-host')?.remove();
+        placeholder.remove();
+        const replacement = createChannelDisplay(channel, container._position, container._rotation);
+        container.replaceWith(replacement);
+    });
+
+    const openButton = placeholder.querySelector('.open-channel-button');
+    openButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        window.open(channel.url, '_blank');
+    });
+}
+
+function createYouTubePlayer(channel, playerHost, placeholder) {
+    queueYouTubePlayer(() => {
+        const player = new YT.Player(playerHost, {
+            height: '720',
+            width: '1280',
+            videoId: channel.featuredVideoId,
+            playerVars: {
+                autoplay: 0,
+                controls: 1,
+                listType: 'playlist',
+                list: channel.uploadsPlaylistId,
+                modestbranding: 1,
+                playsinline: 1,
+                rel: 0
+            },
+            events: {
+                onReady: () => {
+                    placeholder.remove();
+                    playerHost.classList.add('loaded');
+                },
+                onError: (event) => {
+                    const errorMessages = {
+                        2: 'This video is unavailable.',
+                        5: 'This video cannot be played in the embedded player.',
+                        100: 'This video was removed or is private.',
+                        101: 'Embedding is disabled for this video.',
+                        150: 'Embedding is disabled for this video.'
+                    };
+
+                    showEmbedError(
+                        playerHost.closest('.channel-display'),
+                        channel,
+                        placeholder,
+                        errorMessages[event.data] || 'Unable to load this channel video.'
+                    );
+                }
+            }
+        });
+
+        // Guard against silent API failures
+        setTimeout(() => {
+            if (placeholder.isConnected) {
+                showEmbedError(
+                    playerHost.closest('.channel-display'),
+                    channel,
+                    placeholder,
+                    'Video took too long to load. Check your connection and retry.'
+                );
+                try {
+                    player.destroy();
+                } catch (error) {
+                    console.warn('Could not destroy stalled player:', error);
+                }
+            }
+        }, 20000);
+    });
+}
+
 function createChannelDisplay(channel, position, rotation) {
     console.log('Creating display for channel:', channel.name, 'at position:', position);
-    
-    // Create container for 3D positioning
+
     const container = document.createElement('div');
     container.className = 'channel-display';
     container.style.transform = `translate3d(${position.x}px, ${position.y}px, ${position.z}px) rotateY(${rotation}deg)`;
-    
-    // Add loading placeholder
+    container._position = position;
+    container._rotation = rotation;
+
+    const inner = document.createElement('div');
+    inner.className = 'channel-display-inner';
+
     const placeholder = createLoadingPlaceholder();
-    container.appendChild(placeholder);
-    
-    // Create iframe for channel content
-    const iframe = document.createElement('iframe');
-    iframe.src = channel.contentUrl;
-    iframe.width = '1280';
-    iframe.height = '720';
-    iframe.style.display = 'none';  // Hide initially
-    iframe.allowFullscreen = true;
-    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-    
-    // Handle iframe load
-    iframe.addEventListener('load', () => {
-        placeholder.remove();  // Remove placeholder
-        iframe.style.display = 'block';  // Show iframe
-        iframe.classList.add('loaded');  // Fade in
-    });
-    
-    // Create channel name label
+    inner.appendChild(placeholder);
+
+    const playerHost = document.createElement('div');
+    playerHost.className = 'channel-player-host';
+    playerHost.id = `player-${channel.channelId}`;
+    inner.appendChild(playerHost);
+
+    createYouTubePlayer(channel, playerHost, placeholder);
+
     const label = document.createElement('div');
     label.className = 'channel-label';
     label.innerHTML = `
         <div>${channel.name}</div>
-        <div style="font-size: 16px; opacity: 0.8; margin-top: 5px;">${channel.subscribers} subscribers</div>
+        <div class="channel-subscribers">${channel.subscribers} subscribers</div>
+        <button type="button" class="open-channel-link">Open channel on YouTube</button>
     `;
     label.style.color = channel.color;
-    
-    // Add hover effect with channel info
-    const info = document.createElement('div');
-    info.style.position = 'absolute';
-    info.style.top = '100%';
-    info.style.left = '50%';
-    info.style.transform = 'translateX(-50%)';
-    info.style.background = 'rgba(0, 0, 0, 0.8)';
-    info.style.padding = '15px';
-    info.style.borderRadius = '10px';
-    info.style.marginTop = '20px';
-    info.style.width = '300px';
-    info.style.opacity = '0';
-    info.style.transition = 'opacity 0.3s ease';
-    info.innerHTML = `
-        <div style="font-size: 18px; margin-bottom: 10px;">Channel Info</div>
-        <div style="font-size: 14px; opacity: 0.8;">
-            <div>Name: ${channel.name}</div>
-            <div>Subscribers: ${channel.subscribers}</div>
-            <div style="margin-top: 10px;">Click to view channel content</div>
-        </div>
-    `;
-    
-    container.addEventListener('mouseenter', () => {
-        info.style.opacity = '1';
-    });
-    
-    container.addEventListener('mouseleave', () => {
-        info.style.opacity = '0';
-    });
-    
-    // Add click handler
-    container.addEventListener('click', () => {
+
+    label.querySelector('.open-channel-link').addEventListener('click', (event) => {
+        event.stopPropagation();
         window.open(channel.url, '_blank');
     });
-    
-    container.appendChild(iframe);
+
+    const info = document.createElement('div');
+    info.className = 'channel-info';
+    info.innerHTML = `
+        <div class="channel-info-title">Channel Info</div>
+        <div class="channel-info-body">
+            <div>Name: ${channel.name}</div>
+            <div>Subscribers: ${channel.subscribers}</div>
+            <div class="channel-info-tip">Use the player controls to watch inside the app</div>
+        </div>
+    `;
+
+    container.addEventListener('mouseenter', () => {
+        info.classList.add('visible');
+    });
+
+    container.addEventListener('mouseleave', () => {
+        info.classList.remove('visible');
+    });
+
+    container.appendChild(inner);
     container.appendChild(label);
     container.appendChild(info);
-    
+
     return container;
 }
 
 function setupScene() {
     console.log('Setting up scene...');
-    
+
     const displayContainer = document.getElementById('display-container');
     if (!displayContainer) {
         console.error('Display container not found!');
         return;
     }
-    
-    // Create displays in a curved arrangement
-    const radius = 2000;  // Radius in pixels
-    const angleStep = 30;  // Degrees between each display
-    const startAngle = -30;  // Start from slightly left of center
-    const displayHeight = 720;  // Height in pixels
-    
+
+    // Place displays close enough to read and interact with embedded players
+    const radius = 1400;
+    const angleStep = 30;
+    const startAngle = -30;
+    const displayHeight = 720;
+
     channels.forEach((channel, index) => {
         const angle = startAngle + (index * angleStep);
         const angleRad = angle * (Math.PI / 180);
-        
+
         const position = {
             x: radius * Math.sin(angleRad),
-            y: displayHeight / 2,  // Center vertically
+            y: displayHeight / 2,
             z: -radius * Math.cos(angleRad)
         };
-        
+
         const display = createChannelDisplay(channel, position, -angle);
         displayContainer.appendChild(display);
     });
 }
 
-// Initialize when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, setting up displays...');
     setupScene();
-}); 
+});
